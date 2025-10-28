@@ -1,5 +1,6 @@
 from pathlib import Path
 from modules import openapi_parser
+from modules.http_file_generator.http_file_generator import HtttpFileGenerator
 
 if __name__ == "__main__":
     spec_file = Path("../openapi.json")  # Input spec file
@@ -16,5 +17,6 @@ if __name__ == "__main__":
     path_request_body = model.get_request_body(path)
     path_response_body = model.get_response_body(path)
     output_file = "output.http"  # Output HTTP file
-    convert_openapi_to_http(spec_file, output_file)
+    http_file_generator = HtttpFileGenerator(openapi_parser=model)
+    http_file_generator.to_http_file(Path(output_file))
     print(f"HTTP file generated: {output_file}")

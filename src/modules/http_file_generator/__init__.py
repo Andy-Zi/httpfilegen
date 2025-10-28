@@ -1,5 +1,5 @@
-from .parser import OpenApiParser
+from .http_file_generator import HtttpFileGenerator
 
 __all__= [
-    "OpenApiParser",
+    "HtttpFileGenerator",
 ]

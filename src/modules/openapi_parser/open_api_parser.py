@@ -1,4 +1,3 @@
-from os import stat
 from pathlib import Path
 from prance import ResolvingParser
 from openapi_pydantic import (
@@ -6,7 +5,6 @@ from openapi_pydantic import (
     Server,
     PathItem,
     Parameter,
-    Response,
     parse_obj,
 )
 from pydantic import BaseModel, field_validator
