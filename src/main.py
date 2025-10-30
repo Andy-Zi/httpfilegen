@@ -5,7 +5,7 @@ from modules.http_file_generator.http_file_generator import HtttpFileGenerator
 if __name__ == "__main__":
     spec_file = Path("../openapi.json")  # Input spec file
     model = openapi_parser.OpenApiParser(spec_file)
-    path = '/bid-manager/api/v1/workflow/'
+    path = "/bid-manager/api/v1/workflow/"
     paths = model.get_paths()
     server = model.get_server()
     path_item = model.get_path_item(path)

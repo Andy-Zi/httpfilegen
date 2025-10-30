@@ -54,8 +54,10 @@ class HttpFileData(BaseModel):
                 base_lines.append(f"# @BASE_URL = {base_url}")
             else:
                 base_lines.append(f"@BASE_URL = {base_url}")
-        http_file += "\n".join(base_lines) + "\n\n\n###\n\n\n"
+        http_file += "\n".join(base_lines) + "\n\n\n"
 
         # requests
-        http_file += "\n\n###\n\n".join(request.to_http_file(base_url="{{BASE_URL}}") for request in self.requests)
+        http_file += "\n\n".join(
+            request.to_http_file(base_url="{{BASE_URL}}") for request in self.requests
+        )
         return http_file

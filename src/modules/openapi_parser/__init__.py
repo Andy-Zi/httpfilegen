@@ -1,5 +1,5 @@
 from .open_api_parser import OpenApiParser
 
-__all__= [
+__all__ = [
     "OpenApiParser",
 ]

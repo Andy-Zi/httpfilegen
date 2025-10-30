@@ -45,7 +45,20 @@ class OpenApiParser(BaseModel):
         """return a sample example for the request body of the path's operations"""
         path_item = self.get_path_item(path)
         samples = {}
-        methods = [m for m in ['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace'] if getattr(path_item, m, None) is not None]
+        methods = [
+            m
+            for m in [
+                "get",
+                "post",
+                "put",
+                "delete",
+                "patch",
+                "options",
+                "head",
+                "trace",
+            ]
+            if getattr(path_item, m, None) is not None
+        ]
         for method in methods:
             operation = getattr(path_item, method)
             if operation.requestBody and operation.requestBody.content:
@@ -68,7 +81,20 @@ class OpenApiParser(BaseModel):
         """return all path parameters for the given path for all methods"""
         path_item = self.get_path_item(path)
         params_dict = {}
-        methods = [m for m in ['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace'] if getattr(path_item, m, None) is not None]
+        methods = [
+            m
+            for m in [
+                "get",
+                "post",
+                "put",
+                "delete",
+                "patch",
+                "options",
+                "head",
+                "trace",
+            ]
+            if getattr(path_item, m, None) is not None
+        ]
         for method in methods:
             params = []
             if path_item.parameters:
@@ -95,7 +121,20 @@ class OpenApiParser(BaseModel):
         """return all query parameters for the given path for all methods"""
         path_item = self.get_path_item(path)
         params_dict = {}
-        methods = [m for m in ['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace'] if getattr(path_item, m, None) is not None]
+        methods = [
+            m
+            for m in [
+                "get",
+                "post",
+                "put",
+                "delete",
+                "patch",
+                "options",
+                "head",
+                "trace",
+            ]
+            if getattr(path_item, m, None) is not None
+        ]
         for method in methods:
             params = []
             if path_item.parameters:
@@ -118,13 +157,24 @@ class OpenApiParser(BaseModel):
             params_dict[method] = params
         return params_dict
 
-    def get_request_body(
-        self, path: str
-    ) -> dict[str, dict[str, dict] | None]:
+    def get_request_body(self, path: str) -> dict[str, dict[str, dict] | None]:
         """return a sample dict for the request body schema of the given path for all methods"""
         path_item = self.get_path_item(path)
         requests_dict = {}
-        methods = [m for m in ['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace'] if getattr(path_item, m, None) is not None]
+        methods = [
+            m
+            for m in [
+                "get",
+                "post",
+                "put",
+                "delete",
+                "patch",
+                "options",
+                "head",
+                "trace",
+            ]
+            if getattr(path_item, m, None) is not None
+        ]
         for method in methods:
             operation = getattr(path_item, method)
             if operation.requestBody:
@@ -134,7 +184,9 @@ class OpenApiParser(BaseModel):
                         content_type, {}
                     ).media_type_schema.dict(by_alias=True, exclude_none=True)
                     if schema:
-                        requests[content_type] = self._generate_sample_from_schema(schema)
+                        requests[content_type] = self._generate_sample_from_schema(
+                            schema
+                        )
                 if requests:
                     requests_dict[method] = requests
                 else:
@@ -149,7 +201,20 @@ class OpenApiParser(BaseModel):
         """return the responses for the given path for all methods and statuses"""
         path_item = self.get_path_item(path)
         responses_dict = {}
-        methods = [m for m in ['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace'] if getattr(path_item, m, None) is not None]
+        methods = [
+            m
+            for m in [
+                "get",
+                "post",
+                "put",
+                "delete",
+                "patch",
+                "options",
+                "head",
+                "trace",
+            ]
+            if getattr(path_item, m, None) is not None
+        ]
         for method in methods:
             operation = getattr(path_item, method)
             if operation.responses:
@@ -163,7 +228,9 @@ class OpenApiParser(BaseModel):
                             .media_type_schema.dict(by_alias=True, exclude_none=True)
                         )
                         if schema:
-                            responses[content_type] = self._generate_sample_from_schema(schema)
+                            responses[content_type] = self._generate_sample_from_schema(
+                                schema
+                            )
                     if responses:
                         method_responses[status] = responses
                     else:

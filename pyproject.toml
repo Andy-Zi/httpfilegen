@@ -10,5 +10,6 @@ dependencies = [
     "openapi-spec-validator>=0.7.2",
     "prance>=25.4.8.0",
     "pydantic>=2.12.3",
+    "pydantic-settings>=2.11.0",
     "typer>=0.20.0",
 ]
