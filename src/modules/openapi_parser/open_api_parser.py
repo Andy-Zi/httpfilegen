@@ -1,12 +1,14 @@
 from pathlib import Path
 from prance import ResolvingParser
 from openapi_pydantic import (
-    OpenAPI,
     Server,
     PathItem,
     Parameter,
     parse_obj,
 )
+from openapi_pydantic.v3.v3_0 import OpenAPI as OpenAPIv30
+from openapi_pydantic.v3.v3_1 import OpenAPI as OpenAPIv31
+
 from pydantic import BaseModel, field_validator
 from jsf import JSF
 from faker.providers import BaseProvider
@@ -19,7 +21,7 @@ class Duration_provider(BaseProvider):
 
 class OpenApiParser(BaseModel):
     path: Path
-    model: OpenAPI
+    model: OpenAPIv30 | OpenAPIv31
 
     def __init__(self, path: Path):
         model = parse_obj(ResolvingParser(path.as_posix()).specification)
