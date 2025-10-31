@@ -1,16 +1,22 @@
+from typing import Union
 from openapi_pydantic import PathItem
+from openapi_pydantic.v3.v3_0 import Server as Server3_0
+from openapi_pydantic.v3.v3_1 import Server as Server3_1
 from pydantic import BaseModel, Field
 
 from .request import HttpRequest
+from .var import BaseURL
+
+Server = Union[Server3_0, Server3_1]
 
 
 class HttpFileData(BaseModel):
-    base_urls: set[str] = Field(..., description="Base URL for all requests")
+    base_urls: set[BaseURL] = Field(..., description="Base URL for all requests")
     # auth: str | None = Field(None, description="Authorization header value")
     requests: list[HttpRequest] = Field(..., description="List of HTTP requests")
 
     @classmethod
-    def from_paths(cls, base_urls: set[str], paths: dict[str, PathItem]):
+    def from_paths(cls, server: list[Server], paths: dict[str, PathItem]):
         """
         Convert a paths object to a list of HTTP requests
         """
@@ -35,6 +41,12 @@ class HttpFileData(BaseModel):
                             operation=operation,
                         )
                         requests.append(request)
+        base_urls = set()
+        for server in server:
+            base_urls.add(
+                BaseURL(value=server.url, description=server.description or "")
+            )
+
         return cls(
             base_urls=base_urls,
             requests=requests,
@@ -45,15 +57,10 @@ class HttpFileData(BaseModel):
         Convert the data to an HTTP file string
         """
         http_file = ""
-        # env vars
-        http_file += "### System wide env vars\n\n"
-        ## base url
         base_lines = []
+        # params
         for base_url in self.base_urls:
-            if base_lines:
-                base_lines.append(f"# @BASE_URL = {base_url}")
-            else:
-                base_lines.append(f"@BASE_URL = {base_url}")
+            base_lines.append(str(base_url))
         http_file += "\n".join(base_lines) + "\n\n\n"
 
         # requests

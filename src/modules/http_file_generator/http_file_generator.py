@@ -9,7 +9,7 @@ class HtttpFileGenerator:
 
     def __init__(self, openapi_parser: OpenApiParser):
         self.http_file = HttpFileData.from_paths(
-            base_urls={server.url for server in openapi_parser.model.servers},
+            server=openapi_parser.model.servers,
             paths=openapi_parser.model.paths or {},
         )
 

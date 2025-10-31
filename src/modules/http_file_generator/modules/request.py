@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any, Literal, Union
 from openapi_pydantic.v3.v3_1 import (
     Parameter as Parameter3_1,
@@ -52,14 +53,16 @@ class HttpRequest(BaseModel):
         lines = ""
         lines += SEPARATOR
         lines += f"### Request: {self.method} {self.path}\n"
-        lines += f"### Summary: {self.summary or 'No summary provided'}\n"
-        if self.description and "\n" in self.description:
-            desc = "\n" + "\n".join(
-                [f"###   {line}".rstrip() for line in self.description.splitlines()]
-            )
-        else:
-            desc = self.description
-        lines += f"### Description: {desc or 'No description provided'}\n"
+        if self.summary:
+            lines += f"### Summary: {self.summary or 'No summary provided'}\n"
+        if self.description:
+            if "\n" in self.description:
+                desc = "\n" + "\n".join(
+                    [f"###   {line}".rstrip() for line in self.description.splitlines()]
+                )
+            else:
+                desc = self.description
+            lines += f"### Description: {desc or 'No description provided'}\n"
         lines += SEPARATOR
         lines += "\n\n"
         return lines
@@ -105,11 +108,11 @@ class HttpRequest(BaseModel):
         # Handle request body
         if operation.requestBody:
             if isinstance(operation.requestBody, RequestBody):
-                content = operation.requestBody.content
-                if len(content) > 1:
-                    raise NotImplementedError(
-                        "Multiple content types are not supported yet. Please specify only one content type."
-                    )
+                # content = operation.requestBody.content
+                # if len(content) > 1:
+                #     raise NotImplementedError(
+                #         "Multiple content types are not supported yet. Please specify only one content type."
+                #     )
                 media_type, content_item = next(
                     iter(operation.requestBody.content.items())
                 )
@@ -155,6 +158,25 @@ class HttpRequest(BaseModel):
                         raise NotImplementedError(
                             f"Parameter location {param.param_in} is not supported"
                         )
+        if re_params := re.search(r"(?<!\{)\{([^}]+)\}(?!\})", path):
+            # find the param in the path
+            # param_name = re.search(r"{(.+?)}", path).group(1)
+            for param_name in re_params.groups():
+                # param_name = param_name.group(1)
+                new_name = param_name
+                if param_name in path:
+                    # replace the param with a sample value
+                    path = path.replace(param_name, "{" + new_name + "}")
+                else:
+                    raise ValueError(f"Parameter {param.name} not found in path {path}")
+
+                params.append(
+                    HttpVariable(
+                        name=param_name,
+                        value="",
+                        description="",
+                    )
+                )
 
         return cls(
             body=body,
@@ -221,10 +243,7 @@ class HttpRequest(BaseModel):
     def _generate_sample_body_from_schema(cls, schema: dict) -> dict:
         """Generate a sample dict conforming to the given JSON schema using jsf."""
         try:
-            faker = JSF(
-                schema=schema,
-                allow_none_optionals=0
-            )
+            faker = JSF(schema=schema, allow_none_optionals=0)
             sample = faker.generate(n=1, use_defaults=True, use_examples=True)
             if isinstance(sample, list):
                 if sample:
@@ -238,7 +257,9 @@ class HttpRequest(BaseModel):
             raise ValueError(f"Failed to generate sample from schema: {e}")
 
     @classmethod
-    def _generate_sample_param_from_schema(cls, schema: dict) -> Union[int, str, float, bool]:
+    def _generate_sample_param_from_schema(
+        cls, schema: dict
+    ) -> Union[int, str, float, bool]:
         """Generate a sample dict conforming to the given JSON schema using jsf."""
         try:
             faker = JSF(schema=schema)
