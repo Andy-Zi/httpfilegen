@@ -3,6 +3,7 @@ from .http_file_data import HttpFileData
 from .request import HttpRequest
 from .scripts import HttpScript
 from .settings import HttpSettings
+from .var import HttpVariable
 
 __all__ = [
     "HttpFileData",
@@ -10,4 +11,5 @@ __all__ = [
     "HttpScript",
     "HttpClientBaseEnv",
     "HttpSettings",
+    "HttpVariable"
 ]
