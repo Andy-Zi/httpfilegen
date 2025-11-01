@@ -5,6 +5,7 @@ from openapi_pydantic.v3.v3_1 import Server as Server3_1
 from pydantic import BaseModel, Field
 
 from .request import HttpRequest
+from ..enums import METHOD
 from .var import BaseURL
 
 Server = Union[Server3_0, Server3_1]
@@ -23,16 +24,7 @@ class HttpFileData(BaseModel):
         requests = []
         for path, path_item in paths.items():
             for method in path_item.model_dump(exclude_none=True):
-                if method in [
-                    "get",
-                    "post",
-                    "put",
-                    "patch",
-                    "delete",
-                    "head",
-                    "options",
-                    "trace",
-                ]:
+                if method.upper() in METHOD:
                     operation = getattr(path_item, method)
                     if operation:
                         request = HttpRequest.from_operation(
@@ -58,7 +50,8 @@ class HttpFileData(BaseModel):
         """
         http_file = ""
         base_lines = []
-        # params
+        # shared params
+        http_file += "### Shared\n\n"
         for base_url in self.base_urls:
             base_lines.append(str(base_url))
         http_file += "\n".join(base_lines) + "\n\n\n"

@@ -1,8 +1,7 @@
 from enum import StrEnum, auto
-from typing import Literal
 from pydantic import Field
 from pydantic_core import Url
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
 
 class Filemode(StrEnum):
     SINGLE = auto()

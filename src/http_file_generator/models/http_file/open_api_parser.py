@@ -11,6 +11,8 @@ from pydantic import BaseModel, field_validator
 from jsf import JSF
 from faker.providers import BaseProvider
 
+from ..enums import METHOD
+
 
 class Duration_provider(BaseProvider):
     def duration(self):
@@ -47,17 +49,8 @@ class OpenApiParser(BaseModel):
         samples = {}
         methods = [
             m
-            for m in [
-                "get",
-                "post",
-                "put",
-                "delete",
-                "patch",
-                "options",
-                "head",
-                "trace",
-            ]
-            if getattr(path_item, m, None) is not None
+            for m in METHOD
+            if getattr(path_item, m.lower(), None) is not None
         ]
         for method in methods:
             operation = getattr(path_item, method)
@@ -83,17 +76,8 @@ class OpenApiParser(BaseModel):
         params_dict = {}
         methods = [
             m
-            for m in [
-                "get",
-                "post",
-                "put",
-                "delete",
-                "patch",
-                "options",
-                "head",
-                "trace",
-            ]
-            if getattr(path_item, m, None) is not None
+            for m in METHOD
+            if getattr(path_item, m.lower(), None) is not None
         ]
         for method in methods:
             params = []
@@ -123,17 +107,8 @@ class OpenApiParser(BaseModel):
         params_dict = {}
         methods = [
             m
-            for m in [
-                "get",
-                "post",
-                "put",
-                "delete",
-                "patch",
-                "options",
-                "head",
-                "trace",
-            ]
-            if getattr(path_item, m, None) is not None
+            for m in METHOD
+            if getattr(path_item, m.lower(), None) is not None
         ]
         for method in methods:
             params = []
@@ -163,17 +138,8 @@ class OpenApiParser(BaseModel):
         requests_dict = {}
         methods = [
             m
-            for m in [
-                "get",
-                "post",
-                "put",
-                "delete",
-                "patch",
-                "options",
-                "head",
-                "trace",
-            ]
-            if getattr(path_item, m, None) is not None
+            for m in METHOD
+            if getattr(path_item, m.lower(), None) is not None
         ]
         for method in methods:
             operation = getattr(path_item, method)
@@ -203,17 +169,8 @@ class OpenApiParser(BaseModel):
         responses_dict = {}
         methods = [
             m
-            for m in [
-                "get",
-                "post",
-                "put",
-                "delete",
-                "patch",
-                "options",
-                "head",
-                "trace",
-            ]
-            if getattr(path_item, m, None) is not None
+            for m in METHOD
+            if getattr(path_item, m.lower(), None) is not None
         ]
         for method in methods:
             operation = getattr(path_item, method)

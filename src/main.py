@@ -1,6 +1,5 @@
 from pathlib import Path
-from modules import openapi_parser
-from modules.http_file_generator.http_file_generator import HtttpFileGenerator
+from http_file_generator import HtttpFileGenerator
 
 samples_folder = Path("../samples/httpbin/")
 if __name__ == "__main__":
@@ -13,7 +12,7 @@ if __name__ == "__main__":
     # if not file.exists():
     #     continue
     # spec_file = Path("../samples/petstore-expanded.json")  # Input spec file
-    model = openapi_parser.OpenApiParser(file)
+    # model = openapi_parser.OpenApiParser(file)
     # path = "/bid-manager/api/v1/workflow/"
     # paths = model.get_paths()
     # server = model.get_server()
@@ -27,6 +26,6 @@ if __name__ == "__main__":
     # path_response_body = model.get_response_body(path)
     # output_file = "output.http"  # Output HTTP file
     output_file = f"{file.parent}/{file.stem}.http"
-    http_file_generator = HtttpFileGenerator(openapi_parser=model)
+    http_file_generator = HtttpFileGenerator(file)
     http_file_generator.to_http_file(Path(output_file))
     print(f"HTTP file generated: {output_file}")

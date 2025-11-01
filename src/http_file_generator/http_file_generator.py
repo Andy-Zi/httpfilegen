@@ -1,16 +1,16 @@
 from pathlib import Path
 
-from .modules import HttpFileData, HttpClientBaseEnv
-from modules.openapi_parser.open_api_parser import OpenApiParser
+from .models import HttpFileData, HttpClientBaseEnv, OpenApiParser
 
 
 class HtttpFileGenerator:
     env_files: dict[Path, HttpClientBaseEnv]
 
-    def __init__(self, openapi_parser: OpenApiParser):
+    def __init__(self, file: Path):
+        parser = OpenApiParser(file)
         self.http_file = HttpFileData.from_paths(
-            server=openapi_parser.model.servers,
-            paths=openapi_parser.model.paths or {},
+            server=parser.model.servers,
+            paths=parser.model.paths or {},
         )
 
     def to_http_file(self, out_path: Path):
