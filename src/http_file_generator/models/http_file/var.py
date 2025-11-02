@@ -14,7 +14,7 @@ class HttpVariable(BaseModel):
                     [f"# {line}".rstrip() for line in self.description.splitlines()]
                 )
             else:
-                desc = self.description
+                desc = f"# {self.description}"
             lines += f"{desc + '\n' or ''}"
         if self.value:
             lines += f"@{self.name}={self.value}\n"

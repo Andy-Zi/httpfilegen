@@ -2,6 +2,10 @@ from typing import Union
 from openapi_pydantic import PathItem
 from openapi_pydantic.v3.v3_0 import Server as Server3_0
 from openapi_pydantic.v3.v3_1 import Server as Server3_1
+from openapi_pydantic.v3.v3_0 import SecurityScheme as SecurityScheme3_0
+from openapi_pydantic.v3.v3_1 import SecurityScheme as SecurityScheme3_1
+from openapi_pydantic.v3.v3_0 import Reference as Reference3_0
+from openapi_pydantic.v3.v3_1 import Reference as Reference3_1
 from pydantic import BaseModel, Field
 
 from .request import HttpRequest
@@ -9,6 +13,8 @@ from ..enums import METHOD
 from .var import BaseURL
 
 Server = Union[Server3_0, Server3_1]
+SecurityScheme = Union[SecurityScheme3_0, SecurityScheme3_1]
+Reference = Union[Reference3_0, Reference3_1]
 
 
 class HttpFileData(BaseModel):
@@ -17,7 +23,13 @@ class HttpFileData(BaseModel):
     requests: list[HttpRequest] = Field(..., description="List of HTTP requests")
 
     @classmethod
-    def from_paths(cls, server: list[Server], paths: dict[str, PathItem]):
+    def from_paths(
+        cls,
+        server: list[Server],
+        paths: dict[str, PathItem],
+        root_security: list[dict] | None = None,
+        security_schemes: dict[str, Union[SecurityScheme, Reference]] | None = None,
+    ):
         """
         Convert a paths object to a list of HTTP requests
         """
@@ -31,6 +43,8 @@ class HttpFileData(BaseModel):
                             path=path,
                             method=method.upper(),
                             operation=operation,
+                            root_security=root_security,  # type: ignore[arg-type]
+                            security_schemes=security_schemes,  # type: ignore[arg-type]
                         )
                         requests.append(request)
         base_urls = set()

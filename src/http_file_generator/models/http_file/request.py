@@ -12,10 +12,15 @@ from openapi_pydantic.v3.v3_0 import (
     ParameterLocation as ParameterLocation3_0,
     Operation as Operation3_0,
 )
+from openapi_pydantic.v3.v3_1 import SecurityScheme as SecurityScheme3_1
+from openapi_pydantic.v3.v3_0 import SecurityScheme as SecurityScheme3_0
+from openapi_pydantic.v3.v3_1 import Reference as Reference3_1
+from openapi_pydantic.v3.v3_0 import Reference as Reference3_0
 from pydantic import BaseModel, Field
 
 from http_file_generator.models.utils.body_parsing import handle_body
 from http_file_generator.models.utils.parameter_parsing import handle_params
+from http_file_generator.models.utils.auth_parsing import apply_security
 
 from ..enums import METHOD
 
@@ -26,6 +31,8 @@ Parameter = Union[Parameter3_0, Parameter3_1]
 RequestBody = Union[RequestBody3_0, RequestBody3_1]
 ParameterLocation = Union[ParameterLocation3_0, ParameterLocation3_1]
 Operation = Union[Operation3_0, Operation3_1]
+SecurityScheme = Union[SecurityScheme3_0, SecurityScheme3_1]
+Reference = Union[Reference3_0, Reference3_1]
 
 SEPARATOR = "#" * 53 + "\n"
 
@@ -57,14 +64,12 @@ class HttpRequest(BaseModel):
         if self.summary:
             lines += f"### Summary: {self.summary.rstrip("\n") or 'No summary provided'}\n"
         if self.description:
-            lines = ""
-            if self.description:
-                if "\n" in self.description:
-                    desc = "\n" + "\n".join(
-                        [f"###  {line}".rstrip() for line in self.description.splitlines()]
-                    )
-                else:
-                    desc = self.description
+            if "\n" in self.description:
+                desc = "\n" + "\n".join(
+                    [f"###  {line}".rstrip() for line in self.description.splitlines()]
+                )
+            else:
+                desc = self.description
             lines += f"### Description: {desc or 'No description provided'}\n"
         lines += SEPARATOR
         lines += "\n\n"
@@ -100,18 +105,32 @@ class HttpRequest(BaseModel):
 
     @classmethod
     def from_operation(
-        cls, method: METHOD, path: str, operation: Operation
+        cls,
+        method: METHOD,
+        path: str,
+        operation: Operation,
+        root_security: list[dict] | None = None,
+        security_schemes: dict[str, Union[SecurityScheme, Reference]] | None = None,
     ) -> "HttpRequest":
         """
         Create an HttpRequest object from an OpenAPI operation object.
         """
         # Handle request body
         bodies = handle_body(path, operation.requestBody)
-        
         (body, headers) = list(bodies.values())[0] if bodies else (None, None)
 
         # Handle parameters
         path, params = handle_params(path, operation.parameters)
+
+        # Apply security requirements (OpenAPI security + Kulala semantics)
+        path, headers, params = apply_security(
+            path=path,
+            headers=headers or {},
+            params=params or [],
+            operation=operation,
+            root_security=root_security,
+            security_schemes=security_schemes,  # type: ignore[arg-type]
+        )
 
         return cls(
             body=body,

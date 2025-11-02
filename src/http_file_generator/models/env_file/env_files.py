@@ -10,7 +10,6 @@ from pydantic import (
 import re
 import os
 
-
 def validate_url(value: str | None) -> str | None:
     if value is None:
         return value
@@ -28,6 +27,72 @@ def validate_url(value: str | None) -> str | None:
     if not url_pattern.match(value):
         raise ValueError(f"Invalid URL: {value}")
     return value
+
+
+class PrivateOAuth2Auth(BaseModel):
+    # A permissive version for private env allowing secrets-only or full overrides
+    type_: str | None = Field(default="OAuth2", alias="Type")
+    grant_type: Literal[
+        "Authorization Code",
+        "Client Credentials",
+        "Device Authorization",
+        "Implicit",
+        "Password",
+    ] | None = Field(default=None, alias="Grant Type")
+    auth_url: str | None = Field(default=None, alias="Auth URL")
+    token_url: str | None = Field(default=None, alias="Token URL")
+    redirect_url: str | None = Field(default=None, alias="Redirect URL")
+    revoke_url: str | None = Field(default=None, alias="Revoke URL")
+    client_id: str | None = Field(default=None, alias="Client ID")
+    client_secret: str | None = Field(default=None, alias="Client Secret")
+    device_auth_url: str | None = Field(default=None, alias="Device Auth URL")
+    response_type: str | None = Field(default=None, alias="Response Type")
+    client_credentials: Literal["none", "in body", "basic", "jwt"] | None = Field(
+        default=None, alias="Client Credentials"
+    )
+    pkce: bool | dict[str, Any] | None = Field(default=None, alias="PKCE")
+    assertion: str | None = Field(default=None, alias="Assertion")
+    jwt: dict[str, Any] | None = Field(default=None, alias="JWT")
+    scope: str | None = Field(default=None, alias="Scope")
+    expires_in: int | None = Field(default=None, alias="Expires In")
+    acquire_automatically: bool | None = Field(default=None, alias="Acquire Automatically")
+    username: str | None = Field(default=None, alias="Username")
+    password: str | None = Field(default=None, alias="Password")
+    custom_request_parameters: dict[str, Any] | None = Field(
+        default=None, alias="Custom Request Parameters"
+    )
+    use_id_token: bool | None = Field(default=None, alias="Use ID Token")
+
+
+PartialAuthConfig = PrivateOAuth2Auth
+
+
+class PrivateSecurity(BaseModel):
+    auth: dict[str, PartialAuthConfig] = Field(default_factory=dict, alias="Auth")
+
+
+class PrivateEnvSection(BaseModel):
+    default_headers: dict[str, str] | None = Field(
+        default=None, alias="$default_headers"
+    )
+    security: PrivateSecurity | None = Field(default=None, alias="Security")
+
+    model_config = ConfigDict(extra="allow")
+
+    @model_validator(mode="after")
+    def validate_variables(self) -> "PrivateEnvSection":
+        for key, value in self.model_extra.items():
+            if not re.match(r"^[A-Za-z0-9_]+$", key):
+                raise ValueError(
+                    f"Variable key '{key}' does not match required pattern ^[A-Za-z0-9_]+$"
+                )
+            if not isinstance(value, (str, int, float, dict)):
+                raise ValueError(
+                    f"Variable value for '{key}' must be string, number, or object (dict)"
+                )
+        return self
+
+
 
 
 class OAuth2Auth(BaseModel):
@@ -284,13 +349,26 @@ class HttpClientBaseEnv(BaseModel):
 
 class HttpClientPrivateEnv(HttpClientBaseEnv):
     schema_: str = Field(
-        default="https://raw.githubusercontent.com/mistweaverco/kulala.nvim/main/schemas/http-client.env.schema.json",
+        default="https://raw.githubusercontent.com/mistweaverco/kulala.nvim/main/schemas/http-client.private.env.schema.json",
         alias="$schema",
     )
+    shared: PrivateEnvSection | None = Field(default=None, alias="$shared")
 
+    model_config = ConfigDict(extra="allow")
+
+    @model_validator(mode="after")
+    def validate_extra(self) -> "HttpClientPrivateEnv":
+        for key, value in self.model_extra.items():
+            if not isinstance(value, dict):
+                raise ValueError(f"Extra key '{key}' must be a dict")
+            try:
+                PrivateEnvSection(**value)
+            except ValidationError as e:
+                raise ValueError(f"Invalid EnvSection for '{key}': {e}")
+        return self
 
 class HttpClientEnv(HttpClientBaseEnv):
     schema_: str = Field(
-        default="https://raw.githubusercontent.com/mistweaverco/kulala.nvim/main/schemas/http-client.private.env.schema.json",
+        default="https://raw.githubusercontent.com/mistweaverco/kulala.nvim/main/schemas/http-client.env.schema.json",
         alias="$schema",
     )

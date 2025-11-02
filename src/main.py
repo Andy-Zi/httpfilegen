@@ -1,14 +1,15 @@
 from pathlib import Path
 from http_file_generator import HtttpFileGenerator
 
-samples_folder = Path("../samples/httpbin/")
+# samples_folder = Path("../samples/httpbin/")
+samples_folder = Path("../samples/bid-manager//")
 if __name__ == "__main__":
     # for file in samples_folder.glob("*json"):
     # for folder in samples_folder.glob("*"):
-    file = list(samples_folder.glob("*json"))
+    files = list(samples_folder.glob("*json"))
     # if not len(file) == 1: 
     #     continue
-    file = file[0]
+    file = files[2]
     # if not file.exists():
     #     continue
     # spec_file = Path("../samples/petstore-expanded.json")  # Input spec file
@@ -29,3 +30,9 @@ if __name__ == "__main__":
     http_file_generator = HtttpFileGenerator(file)
     http_file_generator.to_http_file(Path(output_file))
     print(f"HTTP file generated: {output_file}")
+
+    # Also generate env files next to the output http file
+    public_env_file = Path(file.parent) / "http-client.env.json"
+    private_env_file = Path(file.parent) / "http-client.private.env.json"
+    http_file_generator.to_env_files(public_env_file, private_env_file, env_name="dev")
+    print(f"Env files generated: {public_env_file}, {private_env_file}")
