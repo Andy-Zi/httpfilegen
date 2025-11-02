@@ -53,16 +53,18 @@ class HttpRequest(BaseModel):
     def _frontmatter(self):
         lines = ""
         lines += SEPARATOR
-        lines += f"### Request: {self.method} {self.path}\n"
+        lines += f"### Request: {self.method} {self.path.replace("\n","")}\n"
         if self.summary:
-            lines += f"### Summary: {self.summary or 'No summary provided'}\n"
+            lines += f"### Summary: {self.summary.rstrip("\n") or 'No summary provided'}\n"
         if self.description:
-            if "\n" in self.description:
-                desc = "\n" + "\n".join(
-                    [f"###   {line}".rstrip() for line in self.description.splitlines()]
-                )
-            else:
-                desc = self.description
+            lines = ""
+            if self.description:
+                if "\n" in self.description:
+                    desc = "\n" + "\n".join(
+                        [f"###  {line}".rstrip() for line in self.description.splitlines()]
+                    )
+                else:
+                    desc = self.description
             lines += f"### Description: {desc or 'No description provided'}\n"
         lines += SEPARATOR
         lines += "\n\n"

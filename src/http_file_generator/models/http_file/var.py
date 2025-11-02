@@ -7,9 +7,22 @@ class HttpVariable(BaseModel):
     description: str = Field("", description="Description of the variable")
 
     def __str__(self) -> str:
+        lines = ""
+        if self.description:
+            if "\n" in self.description:
+                desc = "\n".join(
+                    [f"# {line}".rstrip() for line in self.description.splitlines()]
+                )
+            else:
+                desc = self.description
+            lines += f"{desc + '\n' or ''}"
         if self.value:
-            return f"{'# ' + self.description + '\n' if self.description else ''}@{self.name}={self.value}\n"
-        return f"{'# ' + self.description + '\n' if self.description else ''}# @prompt {self.name}\n"
+            lines += f"@{self.name}={self.value}\n"
+            return lines
+            # return f"{'# ' + self.description + '\n' if self.description else ''}@{self.name}={self.value}\n"
+        lines += f"# @prompt{self.name}\n"
+        return lines
+        # return f"{'# ' + self.description + '\n' if self.description else ''}# @prompt {self.name}\n"
 
     def __hash__(self) -> int:
         return hash((self.name, self.value))

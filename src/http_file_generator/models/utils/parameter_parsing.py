@@ -132,9 +132,9 @@ def handle_query_params(path: str, param: Parameter) -> tuple[str, HttpVariable]
     Handle query parameters in the request path.
     """
     if '?' in path:
-        path += "&" + param.name + "={{" + param.name + "}}"
+        path += "\n&" + param.name + "={{" + param.name + "}}"
     else:
-        path += "?" + param.name + "={{" + param.name + "}}"
+        path += "\n?" + param.name + "={{" + param.name + "}}"
     if param.example:
         value = param.example
     elif param.examples:
