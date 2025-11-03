@@ -43,6 +43,8 @@ httpfilegen generate path/to/openapi.yaml \
 Options of interest:
 - `--filemode, -f`: Generation mode. `SINGLE` (default) writes one .http file. `MULTI` writes one .http per API path and mirrors the path structure as directories.
 - `--base-url`: Optional base URL to include in the generated .http file(s). This is added to the Shared section alongside any servers defined in the spec.
+- `--include-examples/--no-include-examples`: Include commented response examples next to each request.
+- `--include-schema/--no-include-schema`: Include commented request body examples (based on provided examples or schema fallback) next to each request.
 
 Examples:
 
@@ -70,6 +72,8 @@ httpfilegen generate path/to/openapi.yaml \
   --out api.http \
   --filemode MULTI \
   --base-url https://api.example.com \
+  --include-schema \
+  --include-examples \
   --env
 ```
 
@@ -135,8 +139,8 @@ from http_file_generator.models import HttpSettings, Filemode
 spec = Path("path/to/openapi.yaml")
 out = Path("path/to/output.http")
 
-# Single file with optional base URL
-settings = HttpSettings(filemode=Filemode.SINGLE, baseURL="https://api.example.com")
+# Single file with optional base URL and response examples
+settings = HttpSettings(filemode=Filemode.SINGLE, baseURL="https://api.example.com", include_examples=True, include_schema=True)
 http_file_generator = HtttpFileGenerator(spec, settings=settings)
 http_file_generator.to_http_file(out)
 

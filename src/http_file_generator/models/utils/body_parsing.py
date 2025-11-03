@@ -36,10 +36,12 @@ def handle_body(
     # Accept duck-typed RequestBody objects (with 'content' attribute)
     if requestBody is not None and hasattr(requestBody, "content"):
         for media_type, content_item in requestBody.content.items():
-            if content_item.example:
-                body = content_item.example
+            if content_item.example is not None:
+                ex = content_item.example
+                body = getattr(ex, "value", ex)
             elif content_item.examples:
-                body = next(iter(content_item.examples.values()))
+                first = next(iter(content_item.examples.values()))
+                body = getattr(first, "value", first)
             elif content_item.media_type_schema:
                 body = (
                     _generate_sample_body_from_schema(

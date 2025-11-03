@@ -7,8 +7,11 @@ if __name__ == "__main__":
     # Example settings: filemode can be SINGLE (default) or MULTI.
     # baseURL is optional; when provided, it's added to the generated files.
     settings = HttpSettings(
-        filemode=Filemode.MULTI,
+        filemode=Filemode.SINGLE,
         baseURL="https://api.example.com",
+        include_examples=True,
+        include_schema=True
+
     )
     gen = HtttpFileGenerator(spec, settings=settings)
 
@@ -16,7 +19,7 @@ if __name__ == "__main__":
     gen.to_http_file(Path("openapi.http"))
 
     # Or choose a target directory directly
-    gen.to_http_file(Path("out-http"))
+    # gen.to_http_file(Path("out-http"))
     #
     # output_file = f"{file.parent}/{file.stem}.http"
     # http_file_generator = HtttpFileGenerator(file)

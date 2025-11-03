@@ -87,6 +87,16 @@ def generate(
         "--base-url",
         help="Optional base URL to include in generated .http files.",
     ),
+    include_examples: bool = typer.Option(
+        False,
+        "--include-examples/--no-include-examples",
+        help="Include commented response examples next to each request.",
+    ),
+    include_schema: bool = typer.Option(
+        False,
+        "--include-schema/--no-include-schema",
+        help="Include commented request body examples next to each request.",
+    ),
     overwrite: bool = typer.Option(
         False, "--overwrite/--no-overwrite", help="Overwrite existing files if present."
     ),
@@ -130,7 +140,12 @@ def generate(
 
     try:
         fm = _parse_filemode(filemode)
-        settings = HttpSettings(filemode=fm, baseURL=base_url)
+        settings = HttpSettings(
+            filemode=fm,
+            baseURL=base_url,
+            include_examples=include_examples,
+            include_schema=include_schema,
+        )
         gen = HtttpFileGenerator(spec, settings=settings)
     except Exception as e:
         _abort(f"Failed to parse spec: {e}")
@@ -423,6 +438,16 @@ def batch(
         "--base-url",
         help="Optional base URL to include in generated .http files.",
     ),
+    include_examples: bool = typer.Option(
+        False,
+        "--include-examples/--no-include-examples",
+        help="Include commented response examples next to each request.",
+    ),
+    include_schema: bool = typer.Option(
+        False,
+        "--include-schema/--no-include-schema",
+        help="Include commented request body examples next to each request.",
+    ),
     overwrite: bool = typer.Option(
         False, "--overwrite/--no-overwrite", help="Overwrite outputs if they exist."
     ),
@@ -455,12 +480,21 @@ def batch(
         spec = spec.resolve()
         try:
             fm = _parse_filemode(filemode)
-            settings = HttpSettings(filemode=fm, baseURL=base_url)
+            settings = HttpSettings(
+                filemode=fm,
+                baseURL=base_url,
+                include_examples=include_examples,
+                include_schema=include_schema,
+            )
             gen = HtttpFileGenerator(spec, settings=settings)
             if fm == Filemode.SINGLE:
                 out_file = spec.with_suffix(".http")
                 _ensure_write_target(out_file, overwrite)
-                gen.to_http_file(out_file)
+                content = gen.http_file.to_http_file(
+                    include_examples=settings.include_examples,
+                    include_schema=settings.include_schema,
+                )
+                out_file.write_text(content)
                 env_base_dir = spec.parent
             else:
                 target_dir = spec.parent / spec.stem

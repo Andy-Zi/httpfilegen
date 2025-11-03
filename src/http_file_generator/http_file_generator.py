@@ -46,7 +46,10 @@ class HtttpFileGenerator:
                   (folder structure mirrors the path segments, file named index.http).
         """
         if self.settings.filemode == Filemode.SINGLE:
-            lines = self.http_file.to_http_file()
+            lines = self.http_file.to_http_file(
+                include_examples=self.settings.include_examples,
+                include_schema=self.settings.include_schema,
+            )
             with Path.open(out_path, "w") as f:
                 # Using write for a single string payload
                 f.write(lines)
@@ -105,6 +108,9 @@ class HtttpFileGenerator:
             target_file = target_dir / filename
 
             data = HttpFileData(base_urls=self.http_file.base_urls, requests=reqs)
-            content = data.to_http_file()
+            content = data.to_http_file(
+                include_examples=self.settings.include_examples,
+                include_schema=self.settings.include_schema,
+            )
             with Path.open(target_file, "w") as f:
                 f.write(content)
