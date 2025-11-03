@@ -7,7 +7,7 @@ if __name__ == "__main__":
     # for file in samples_folder.glob("*json"):
     # for folder in samples_folder.glob("*"):
     files = list(samples_folder.glob("*json"))
-    # if not len(file) == 1: 
+    # if not len(file) == 1:
     #     continue
     file = files[2]
     # if not file.exists():

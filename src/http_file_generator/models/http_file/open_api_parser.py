@@ -20,11 +20,13 @@ class Duration_provider(BaseProvider):
 
 
 class OpenApiParser(BaseModel):
-    path: Path
+    path: Path | str
     model: OpenAPIv3
 
-    def __init__(self, path: Path):
-        model = parse_obj(ResolvingParser(path.as_posix()).specification)
+    def __init__(self, path: str | Path):
+        # prance ResolvingParser accepts a URL or local file path string
+        source = path.as_posix() if isinstance(path, Path) else str(path)
+        model = parse_obj(ResolvingParser(source).specification)
         super().__init__(path=path, model=model)
 
     def get_paths(self) -> list[str]:
@@ -47,39 +49,35 @@ class OpenApiParser(BaseModel):
         """return a sample example for the request body of the path's operations"""
         path_item = self.get_path_item(path)
         samples = {}
-        methods = [
-            m
-            for m in METHOD
-            if getattr(path_item, m.lower(), None) is not None
-        ]
+        methods = [m for m in METHOD if getattr(path_item, m.lower(), None) is not None]
         for method in methods:
-            operation = getattr(path_item, method)
+            method_name = method.value
+            operation = getattr(path_item, method_name.lower())
             if operation.requestBody and operation.requestBody.content:
                 # Get the first content type's example
                 content = next(iter(operation.requestBody.content.values()))
                 if content.example:
-                    samples[method] = content.example
+                    samples[method_name] = content.example
                 elif content.examples:
                     # Return the first example's value
                     first_example = next(iter(content.examples.values()))
                     if hasattr(first_example, "value"):
-                        samples[method] = first_example.value
+                        samples[method_name] = first_example.value
+                    elif isinstance(first_example, dict):
+                        samples[method_name] = first_example
                 else:
-                    samples[method] = None
+                    samples[method_name] = None
             else:
-                samples[method] = None
+                samples[method_name] = None
         return samples
 
     def get_path_params(self, path: str) -> dict[str, list[Parameter]]:
         """return all path parameters for the given path for all methods"""
         path_item = self.get_path_item(path)
         params_dict = {}
-        methods = [
-            m
-            for m in METHOD
-            if getattr(path_item, m.lower(), None) is not None
-        ]
+        methods = [m for m in METHOD if getattr(path_item, m.lower(), None) is not None]
         for method in methods:
+            method_name = method.value
             params = []
             if path_item.parameters:
                 params.extend(
@@ -89,7 +87,7 @@ class OpenApiParser(BaseModel):
                         if isinstance(p, Parameter) and p.param_in == "path"
                     ]
                 )
-            operation = getattr(path_item, method)
+            operation = getattr(path_item, method_name.lower())
             if operation.parameters:
                 params.extend(
                     [
@@ -98,19 +96,16 @@ class OpenApiParser(BaseModel):
                         if isinstance(p, Parameter) and p.param_in == "path"
                     ]
                 )
-            params_dict[method] = params
+            params_dict[method_name] = params
         return params_dict
 
     def get_query_params(self, path: str) -> dict[str, list[Parameter]]:
         """return all query parameters for the given path for all methods"""
         path_item = self.get_path_item(path)
         params_dict = {}
-        methods = [
-            m
-            for m in METHOD
-            if getattr(path_item, m.lower(), None) is not None
-        ]
+        methods = [m for m in METHOD if getattr(path_item, m.lower(), None) is not None]
         for method in methods:
+            method_name = method.value
             params = []
             if path_item.parameters:
                 params.extend(
@@ -120,7 +115,7 @@ class OpenApiParser(BaseModel):
                         if isinstance(p, Parameter) and p.param_in == "query"
                     ]
                 )
-            operation = getattr(path_item, method)
+            operation = getattr(path_item, method_name.lower())
             if operation.parameters:
                 params.extend(
                     [
@@ -129,36 +124,44 @@ class OpenApiParser(BaseModel):
                         if isinstance(p, Parameter) and p.param_in == "query"
                     ]
                 )
-            params_dict[method] = params
+            params_dict[method_name] = params
         return params_dict
 
     def get_request_body(self, path: str) -> dict[str, dict[str, dict] | None]:
         """return a sample dict for the request body schema of the given path for all methods"""
         path_item = self.get_path_item(path)
         requests_dict = {}
-        methods = [
-            m
-            for m in METHOD
-            if getattr(path_item, m.lower(), None) is not None
-        ]
+        methods = [m for m in METHOD if getattr(path_item, m.lower(), None) is not None]
         for method in methods:
-            operation = getattr(path_item, method)
+            method_name = method.value
+            operation = getattr(path_item, method_name.lower())
             if operation.requestBody:
                 requests: dict[str, dict] = {}
-                for content_type in operation.requestBody.content:
-                    schema = operation.requestBody.content.get(
-                        content_type, {}
-                    ).media_type_schema.dict(by_alias=True, exclude_none=True)
-                    if schema:
-                        requests[content_type] = self._generate_sample_from_schema(
-                            schema
-                        )
-                if requests:
-                    requests_dict[method] = requests
-                else:
-                    requests_dict[method] = None
+                content_map = getattr(operation.requestBody, "content", None) or {}
+                for content_type, media in content_map.items():
+                    # Prefer example/examples if present
+                    if getattr(media, "example", None) is not None:
+                        requests[content_type] = media.example
+                        continue
+                    if getattr(media, "examples", None):
+                        first = next(iter(media.examples.values()))
+                        if hasattr(first, "value"):
+                            requests[content_type] = first.value
+                        elif isinstance(first, dict):
+                            requests[content_type] = first
+                        else:
+                            requests[content_type] = None
+                        continue
+                    schema = getattr(media, "media_type_schema", None)
+                    if schema is not None:
+                        schema_dict = schema.model_dump(by_alias=True, exclude_none=True)
+                        if schema_dict:
+                            requests[content_type] = self._generate_sample_from_schema(
+                                schema_dict
+                            )
+                requests_dict[method_name] = requests or None
             else:
-                requests_dict[method] = None
+                requests_dict[method_name] = None
         return requests_dict
 
     def get_response_body(
@@ -167,34 +170,40 @@ class OpenApiParser(BaseModel):
         """return the responses for the given path for all methods and statuses"""
         path_item = self.get_path_item(path)
         responses_dict = {}
-        methods = [
-            m
-            for m in METHOD
-            if getattr(path_item, m.lower(), None) is not None
-        ]
+        methods = [m for m in METHOD if getattr(path_item, m.lower(), None) is not None]
         for method in methods:
-            operation = getattr(path_item, method)
+            method_name = method.value
+            operation = getattr(path_item, method_name.lower())
             if operation.responses:
-                method_responses = {}
-                for status in operation.responses:
+                method_responses: dict[str, dict[str, dict] | None] = {}
+                for status, response in operation.responses.items():
                     responses: dict[str, dict] = {}
-                    for content_type in operation.responses[status].content:
-                        schema = (
-                            operation.responses[status]
-                            .content.get(content_type, {})
-                            .media_type_schema.dict(by_alias=True, exclude_none=True)
-                        )
-                        if schema:
-                            responses[content_type] = self._generate_sample_from_schema(
-                                schema
-                            )
-                    if responses:
-                        method_responses[status] = responses
-                    else:
-                        method_responses[status] = None
-                responses_dict[method] = method_responses
+                    content_map = getattr(response, "content", None) or {}
+                    for content_type, media in content_map.items():
+                        # Prefer example/examples if present
+                        if getattr(media, "example", None) is not None:
+                            responses[content_type] = media.example
+                            continue
+                        if getattr(media, "examples", None):
+                            first = next(iter(media.examples.values()))
+                            if hasattr(first, "value"):
+                                responses[content_type] = first.value
+                            elif isinstance(first, dict):
+                                responses[content_type] = first
+                            else:
+                                responses[content_type] = None
+                            continue
+                        schema = getattr(media, "media_type_schema", None)
+                        if schema is not None:
+                            schema_dict = schema.model_dump(by_alias=True, exclude_none=True)
+                            if schema_dict:
+                                responses[content_type] = self._generate_sample_from_schema(
+                                    schema_dict
+                                )
+                    method_responses[status] = responses or None
+                responses_dict[method_name] = method_responses
             else:
-                responses_dict[method] = {}
+                responses_dict[method_name] = {}
         return responses_dict
 
     def _generate_sample_from_schema(self, schema: dict) -> dict:
@@ -208,6 +217,15 @@ class OpenApiParser(BaseModel):
 
     @field_validator("path")
     def path_must_exist(cls, v):
-        if not Path(v).exists():
-            raise ValueError("must exist")
+        # Accept URLs or existing local paths
+        if isinstance(v, Path):
+            if not v.exists():
+                raise ValueError("must exist")
+        else:
+            # heuristic: if it looks like http(s) URL, allow; otherwise check path
+            sv = str(v)
+            if sv.startswith("http://") or sv.startswith("https://"):
+                return v
+            if not Path(sv).exists():
+                raise ValueError("must exist")
         return v

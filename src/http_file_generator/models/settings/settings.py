@@ -3,6 +3,7 @@ from pydantic import Field
 from pydantic_core import Url
 from pydantic_settings import BaseSettings
 
+
 class Filemode(StrEnum):
     SINGLE = auto()
     MULTI = auto()

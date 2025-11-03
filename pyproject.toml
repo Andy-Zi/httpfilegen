@@ -13,3 +13,18 @@ dependencies = [
     "pydantic-settings>=2.11.0",
     "typer>=0.20.0",
 ]
+
+[project.scripts]
+httpfilegen = "cli:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["cli"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["tests", "tests.*", "*.tests", "*.tests.*"]

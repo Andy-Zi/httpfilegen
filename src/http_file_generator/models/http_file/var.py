@@ -27,5 +27,6 @@ class HttpVariable(BaseModel):
     def __hash__(self) -> int:
         return hash((self.name, self.value))
 
+
 class BaseURL(HttpVariable):
     name: str = Field("BASE_URL", description="Name of the variable")

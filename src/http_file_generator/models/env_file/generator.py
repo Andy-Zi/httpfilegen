@@ -26,12 +26,8 @@ Reference = Union[Reference3_0, Reference3_1]
 OpenAPI = Union[OpenAPI3_0, OpenAPI3_1]
 
 # Note: Public env uses the public schema; private env uses the private schema
-PUBLIC_SCHEMA_URL = (
-    "https://raw.githubusercontent.com/mistweaverco/kulala.nvim/main/schemas/http-client.env.schema.json"
-)
-PRIVATE_SCHEMA_URL = (
-    "https://raw.githubusercontent.com/mistweaverco/kulala.nvim/main/schemas/http-client.private.env.schema.json"
-)
+PUBLIC_SCHEMA_URL = "https://raw.githubusercontent.com/mistweaverco/kulala.nvim/main/schemas/http-client.env.schema.json"
+PRIVATE_SCHEMA_URL = "https://raw.githubusercontent.com/mistweaverco/kulala.nvim/main/schemas/http-client.private.env.schema.json"
 
 
 def _sanitize(name: str) -> str:
@@ -69,7 +65,9 @@ def _flow_scopes_str(flow_dict: dict) -> str | None:
     return " ".join(sorted(scopes.keys()))
 
 
-def _build_oauth2_public_config(scheme_name: str, scheme: SecurityScheme) -> dict | None:
+def _build_oauth2_public_config(
+    scheme_name: str, scheme: SecurityScheme
+) -> dict | None:
     chosen = _choose_oauth2_flow(scheme)
     if not chosen:
         # missing flows; cannot build a valid typed config
@@ -99,7 +97,9 @@ def _build_oauth2_public_config(scheme_name: str, scheme: SecurityScheme) -> dic
     return cfg
 
 
-def _build_oauth2_private_config(scheme_name: str, scheme: SecurityScheme) -> dict | None:
+def _build_oauth2_private_config(
+    scheme_name: str, scheme: SecurityScheme
+) -> dict | None:
     chosen = _choose_oauth2_flow(scheme)
     if not chosen:
         # No resolved flow details; provide secrets-only skeleton
@@ -219,8 +219,16 @@ def generate_env_dicts(model: OpenAPI, env_name: str = "dev") -> tuple[dict, dic
             setattr(private_env_section, k, v)
 
     # Attach the environment section under the env name
-    setattr(public_env_model, env_name, public_env_section.model_dump(by_alias=True, exclude_none=True))
-    setattr(private_env_model, env_name, private_env_section.model_dump(by_alias=True, exclude_none=True))
+    setattr(
+        public_env_model,
+        env_name,
+        public_env_section.model_dump(by_alias=True, exclude_none=True),
+    )
+    setattr(
+        private_env_model,
+        env_name,
+        private_env_section.model_dump(by_alias=True, exclude_none=True),
+    )
 
     # Dump to dicts preserving aliases and excluding None
     return (

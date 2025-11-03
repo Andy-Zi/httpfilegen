@@ -16,9 +16,10 @@ def _sanitize(name: str) -> str:
 
 
 def _append_query_param(path: str, name: str, var_name: str) -> str:
+    placeholder = "{{" + var_name + "}}"
     if "?" in path:
-        return path + f"\n&{name}={{{{{var_name}}}}}"
-    return path + f"\n?{name}={{{{{var_name}}}}}"
+        return path + f"\n&{name}=" + placeholder
+    return path + f"\n?{name}=" + placeholder
 
 
 def _choose_effective_security(
@@ -75,17 +76,17 @@ def apply_security(
                 user_var = f"{alias_upper}_USERNAME"
                 pass_var = f"{alias_upper}_PASSWORD"
                 out_headers["Authorization"] = (
-                    f"Basic {{{{{user_var}}}}}:{{{{{pass_var}}}}}"
+                    "Basic " + ("{{" + user_var + "}}") + ":" + ("{{" + pass_var + "}}")
                 )
             elif http_scheme == "bearer":
                 # plain bearer token variable
                 token_var = f"{alias_upper}_TOKEN"
-                out_headers["Authorization"] = f"Bearer {{{{{token_var}}}}}"
+                out_headers["Authorization"] = "Bearer " + ("{{" + token_var + "}}")
             elif http_scheme == "digest":
                 user_var = f"{alias_upper}_USERNAME"
                 pass_var = f"{alias_upper}_PASSWORD"
                 out_headers["Authorization"] = (
-                    f"Digest {{{{{user_var}}}}}:{{{{{pass_var}}}}}"
+                    "Digest " + ("{{" + user_var + "}}") + ":" + ("{{" + pass_var + "}}")
                 )
             elif http_scheme == "ntlm":
                 out_headers["Authorization"] = "NTLM"
@@ -104,7 +105,7 @@ def apply_security(
             elif location == "query":
                 path = _append_query_param(path, name, var_name)
             elif location == "cookie":
-                cookie_val = f"{name}={{{{{var_name}}}}}"
+                cookie_val = f"{name}=" + ("{{" + var_name + "}}")
                 if "Cookie" in out_headers and out_headers["Cookie"]:
                     out_headers["Cookie"] = out_headers["Cookie"] + "; " + cookie_val
                 else:
@@ -113,7 +114,9 @@ def apply_security(
         elif scheme.type in ("oauth2", "openIdConnect"):
             # Delegate OAuth2/OpenID Connect to Kulala auth manager via $auth.token
             # Need to escape braces in f-string to output {{ ... }} literally
-            out_headers["Authorization"] = f"Bearer {{{{$auth.token(\"{scheme_name}\")}}}}"
+            out_headers["Authorization"] = (
+                f'Bearer {{{{$auth.token("{scheme_name}")}}}}'
+            )
 
         elif scheme.type == "mutualTLS":
             # Configured via client certificates; nothing to add in request

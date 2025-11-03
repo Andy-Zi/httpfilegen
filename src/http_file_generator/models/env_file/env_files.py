@@ -10,6 +10,7 @@ from pydantic import (
 import re
 import os
 
+
 def validate_url(value: str | None) -> str | None:
     if value is None:
         return value
@@ -32,13 +33,16 @@ def validate_url(value: str | None) -> str | None:
 class PrivateOAuth2Auth(BaseModel):
     # A permissive version for private env allowing secrets-only or full overrides
     type_: str | None = Field(default="OAuth2", alias="Type")
-    grant_type: Literal[
-        "Authorization Code",
-        "Client Credentials",
-        "Device Authorization",
-        "Implicit",
-        "Password",
-    ] | None = Field(default=None, alias="Grant Type")
+    grant_type: (
+        Literal[
+            "Authorization Code",
+            "Client Credentials",
+            "Device Authorization",
+            "Implicit",
+            "Password",
+        ]
+        | None
+    ) = Field(default=None, alias="Grant Type")
     auth_url: str | None = Field(default=None, alias="Auth URL")
     token_url: str | None = Field(default=None, alias="Token URL")
     redirect_url: str | None = Field(default=None, alias="Redirect URL")
@@ -55,7 +59,9 @@ class PrivateOAuth2Auth(BaseModel):
     jwt: dict[str, Any] | None = Field(default=None, alias="JWT")
     scope: str | None = Field(default=None, alias="Scope")
     expires_in: int | None = Field(default=None, alias="Expires In")
-    acquire_automatically: bool | None = Field(default=None, alias="Acquire Automatically")
+    acquire_automatically: bool | None = Field(
+        default=None, alias="Acquire Automatically"
+    )
     username: str | None = Field(default=None, alias="Username")
     password: str | None = Field(default=None, alias="Password")
     custom_request_parameters: dict[str, Any] | None = Field(
@@ -91,8 +97,6 @@ class PrivateEnvSection(BaseModel):
                     f"Variable value for '{key}' must be string, number, or object (dict)"
                 )
         return self
-
-
 
 
 class OAuth2Auth(BaseModel):
@@ -366,6 +370,7 @@ class HttpClientPrivateEnv(HttpClientBaseEnv):
             except ValidationError as e:
                 raise ValueError(f"Invalid EnvSection for '{key}': {e}")
         return self
+
 
 class HttpClientEnv(HttpClientBaseEnv):
     schema_: str = Field(

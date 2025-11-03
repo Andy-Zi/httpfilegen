@@ -8,7 +8,8 @@ import json
 class HtttpFileGenerator:
     env_files: dict[Path, HttpClientBaseEnv]
 
-    def __init__(self, file: Path):
+    def __init__(self, file: str | Path):
+        """Initialize with a local file path or a remote URL to an OpenAPI spec."""
         parser = OpenApiParser(file)
         components = parser.model.components
         security_schemes = components.securitySchemes if components else None
@@ -30,7 +31,9 @@ class HtttpFileGenerator:
         Generate http-client.env.json and http-client.private.env.json skeletons
         based on the OpenAPI security schemes.
         """
-        public_env, private_env = generate_env_dicts(self._openapi_model, env_name=env_name)
+        public_env, private_env = generate_env_dicts(
+            self._openapi_model, env_name=env_name
+        )
         with Path.open(public_out, "w") as f:
             json.dump(public_env, f, indent=2)
         with Path.open(private_out, "w") as f:

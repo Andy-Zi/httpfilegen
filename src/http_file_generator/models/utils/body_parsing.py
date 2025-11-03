@@ -18,7 +18,6 @@ from openapi_pydantic.v3.v3_0 import (
 from jsf import JSF
 
 
-
 Parameter = Union[Parameter3_0, Parameter3_1]
 RequestBody = Union[RequestBody3_0, RequestBody3_1]
 Reference = Union[Reference3_0, Reference3_1]
@@ -26,15 +25,16 @@ Example = Union[Example3_0, Example3_1]
 ParameterLocation = Union[ParameterLocation3_0, ParameterLocation3_1]
 Operation = Union[Operation3_0, Operation3_1]
 
+
 def handle_body(
-    path: str,
-    requestBody: RequestBody | Reference | None
-) -> dict[str,tuple[Reference | Example, dict]]:
+    path: str, requestBody: RequestBody | Reference | None
+) -> dict[str, tuple[Reference | Example, dict]]:
     """
     Handle parameters in the request path.
     """
     out = {}
-    if isinstance(requestBody, RequestBody):
+    # Accept duck-typed RequestBody objects (with 'content' attribute)
+    if requestBody is not None and hasattr(requestBody, "content"):
         for media_type, content_item in requestBody.content.items():
             if content_item.example:
                 body = content_item.example
@@ -43,7 +43,7 @@ def handle_body(
             elif content_item.media_type_schema:
                 body = (
                     _generate_sample_body_from_schema(
-                        content_item.media_type_schema.dict(
+                        content_item.media_type_schema.model_dump(
                             by_alias=True, exclude_none=True
                         )
                     )
@@ -55,7 +55,6 @@ def handle_body(
             content_type_header = {"Content-Type": media_type} if media_type else {}
             out[media_type] = (body, content_type_header)
     return out
-
 
 
 def _generate_sample_body_from_schema(schema: dict) -> dict:
@@ -73,4 +72,3 @@ def _generate_sample_body_from_schema(schema: dict) -> dict:
         return sample
     except Exception as e:
         raise ValueError(f"Failed to generate sample from schema: {e}")
-

@@ -1,5 +1,6 @@
 from enum import StrEnum
 
+
 class METHOD(StrEnum):
     OPTIONS = "OPTIONS"
     GET = "GET"
