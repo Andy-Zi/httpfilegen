@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 import json
 from http_file_generator import HtttpFileGenerator
-from http_file_generator.models import OpenApiParser, METHOD
+from http_file_generator.models import OpenApiParser, METHOD, HttpSettings, Filemode
 
 app = typer.Typer(
     help="Generate .http files and env files from an OpenAPI spec.",
@@ -54,6 +54,17 @@ def _method_upper_list(methods: Optional[List[str]]) -> Optional[List[str]]:
     return result
 
 
+def _parse_filemode(value: Optional[str]) -> Filemode:
+    if value is None:
+        return Filemode.SINGLE
+    v = value.strip().lower()
+    if v in ("single", "s"):
+        return Filemode.SINGLE
+    if v in ("multi", "m"):
+        return Filemode.MULTI
+    _abort("Invalid value for --filemode: choose 'single' or 'multi'.")
+
+
 @app.command("generate")
 def generate(
     spec: str = typer.Argument(
@@ -64,6 +75,17 @@ def generate(
         "--out",
         "-o",
         help="Output .http file path. Defaults to <spec>.http next to the spec.",
+    ),
+    filemode: Optional[str] = typer.Option(
+        None,
+        "--filemode",
+        "-f",
+        help="File generation mode: SINGLE (one .http) or MULTI (one per path).",
+    ),
+    base_url: Optional[str] = typer.Option(
+        None,
+        "--base-url",
+        help="Optional base URL to include in generated .http files.",
     ),
     overwrite: bool = typer.Option(
         False, "--overwrite/--no-overwrite", help="Overwrite existing files if present."
@@ -95,31 +117,48 @@ def generate(
     Optionally also generate http-client env files.
     """
     spec = _validate_spec_source(spec)
-    # Derive output file
+    # Derive output path (file or directory depending on filemode)
     if out is not None:
-        out_file = out
+        out_path = out
     else:
         if _is_url(spec):
             # derive name from URL path segment
             name = Path(str(spec).rstrip("/").split("/")[-1]).stem or "openapi"
-            out_file = Path.cwd() / f"{name}.http"
+            out_path = Path.cwd() / f"{name}.http"
         else:
-            out_file = Path(spec).with_suffix(".http")
+            out_path = Path(spec).with_suffix(".http")
 
     try:
-        gen = HtttpFileGenerator(spec)
+        fm = _parse_filemode(filemode)
+        settings = HttpSettings(filemode=fm, baseURL=base_url)
+        gen = HtttpFileGenerator(spec, settings=settings)
     except Exception as e:
         _abort(f"Failed to parse spec: {e}")
 
-    _ensure_write_target(out_file, overwrite)
-    try:
-        gen.to_http_file(out_file)
-    except Exception as e:
-        _abort(f"Failed to write HTTP file: {e}")
-    typer.secho(f"HTTP file generated: {out_file}", fg=typer.colors.GREEN)
+    # Ensure write target based on mode
+    if fm == Filemode.SINGLE:
+        _ensure_write_target(out_path, overwrite)
+        try:
+            gen.to_http_file(out_path)
+        except Exception as e:
+            _abort(f"Failed to write HTTP file: {e}")
+        typer.secho(f"HTTP file generated: {out_path}", fg=typer.colors.GREEN)
+        default_env_dir = out_path.parent
+    else:
+        # MULTI mode: resolve target directory
+        target_dir = out_path.parent / out_path.stem if out_path.suffix == ".http" else out_path
+        if target_dir.exists() and not overwrite:
+            _abort(f"Refusing to overwrite existing directory without --overwrite: {target_dir}")
+        target_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            gen.to_http_file(target_dir)
+        except Exception as e:
+            _abort(f"Failed to write HTTP files: {e}")
+        typer.secho(f"HTTP files generated under: {target_dir}", fg=typer.colors.GREEN)
+        default_env_dir = target_dir
 
     if env:
-        env_target_dir = env_dir or out_file.parent
+        env_target_dir = env_dir or default_env_dir
         public_env = env_target_dir / public_env_filename
         private_env = env_target_dir / private_env_filename
         if not overwrite:
@@ -373,6 +412,17 @@ def batch(
         "-p",
         help="Glob(s) for spec files, comma-separated.",
     ),
+    filemode: Optional[str] = typer.Option(
+        None,
+        "--filemode",
+        "-f",
+        help="File generation mode: SINGLE (one .http) or MULTI (one per path).",
+    ),
+    base_url: Optional[str] = typer.Option(
+        None,
+        "--base-url",
+        help="Optional base URL to include in generated .http files.",
+    ),
     overwrite: bool = typer.Option(
         False, "--overwrite/--no-overwrite", help="Overwrite outputs if they exist."
     ),
@@ -404,17 +454,33 @@ def batch(
     for spec in files:
         spec = spec.resolve()
         try:
-            gen = HtttpFileGenerator(spec)
-            out_file = spec.with_suffix(".http")
-            _ensure_write_target(out_file, overwrite)
-            gen.to_http_file(out_file)
+            fm = _parse_filemode(filemode)
+            settings = HttpSettings(filemode=fm, baseURL=base_url)
+            gen = HtttpFileGenerator(spec, settings=settings)
+            if fm == Filemode.SINGLE:
+                out_file = spec.with_suffix(".http")
+                _ensure_write_target(out_file, overwrite)
+                gen.to_http_file(out_file)
+                env_base_dir = spec.parent
+            else:
+                target_dir = spec.parent / spec.stem
+                if target_dir.exists() and not overwrite:
+                    raise RuntimeError(
+                        f"Refusing to overwrite existing directory without --overwrite: {target_dir}"
+                    )
+                target_dir.mkdir(parents=True, exist_ok=True)
+                gen.to_http_file(target_dir)
+                env_base_dir = target_dir
             if env:
-                public_env = spec.parent / "http-client.env.json"
-                private_env = spec.parent / "http-client.private.env.json"
+                public_env = env_base_dir / "http-client.env.json"
+                private_env = env_base_dir / "http-client.private.env.json"
                 if overwrite or (not public_env.exists() and not private_env.exists()):
                     gen.to_env_files(public_env, private_env, env_name=env_name)
             processed += 1
-            typer.secho(f"Generated: {out_file}", fg=typer.colors.GREEN)
+            if fm == Filemode.SINGLE:
+                typer.secho(f"Generated: {out_file}", fg=typer.colors.GREEN)
+            else:
+                typer.secho(f"Generated (MULTI): {spec} -> {env_base_dir}", fg=typer.colors.GREEN)
         except Exception as e:
             failures.append({"spec": str(spec), "error": str(e)})
             typer.secho(f"Failed: {spec} -> {e}", fg=typer.colors.RED)
