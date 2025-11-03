@@ -11,6 +11,7 @@ dependencies = [
     "prance>=25.4.8.0",
     "pydantic>=2.12.3",
     "pydantic-settings>=2.11.0",
+    "pytest>=8.4.2",
     "typer>=0.20.0",
 ]
 
@@ -28,3 +29,30 @@ py-modules = ["cli"]
 [tool.setuptools.packages.find]
 where = ["src"]
 exclude = ["tests", "tests.*", "*.tests", "*.tests.*"]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0",
+    "typer>=0.20.0",
+    "pytest-cov>=4.1",
+]
+
+[tool.pytest.ini_options]
+addopts = "-q --cov=src --cov-report=term-missing --cov-report=xml:coverage.xml"
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore:Pickle, copy, and deepcopy support will be removed from itertools:DeprecationWarning:copy",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/.venv/*",
+    "src/main.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
