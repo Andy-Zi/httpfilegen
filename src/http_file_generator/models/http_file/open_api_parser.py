@@ -1,6 +1,5 @@
 from pathlib import Path
 from openapi_pydantic.v3.parser import OpenAPIv3
-from prance import ResolvingParser
 from openapi_pydantic import (
     Server,
     PathItem,
@@ -20,14 +19,11 @@ class Duration_provider(BaseProvider):
 
 
 class OpenApiParser(BaseModel):
-    path: Path | str
     model: OpenAPIv3
 
-    def __init__(self, path: str | Path):
-        # prance ResolvingParser accepts a URL or local file path string
-        source = path.as_posix() if isinstance(path, Path) else str(path)
-        model = parse_obj(ResolvingParser(source).specification)
-        super().__init__(path=path, model=model)
+    def __init__(self, data: dict):
+        model = parse_obj(data)
+        super().__init__(model=model)
 
     def get_paths(self) -> list[str]:
         """return all paths"""
@@ -214,18 +210,3 @@ class OpenApiParser(BaseModel):
             return sample
         except Exception as e:
             raise ValueError(f"Failed to generate sample from schema: {e}")
-
-    @field_validator("path")
-    def path_must_exist(cls, v):
-        # Accept URLs or existing local paths
-        if isinstance(v, Path):
-            if not v.exists():
-                raise ValueError("must exist")
-        else:
-            # heuristic: if it looks like http(s) URL, allow; otherwise check path
-            sv = str(v)
-            if sv.startswith("http://") or sv.startswith("https://"):
-                return v
-            if not Path(sv).exists():
-                raise ValueError("must exist")
-        return v

@@ -1,10 +1,37 @@
 from pathlib import Path
 
+import json
+import urllib.request
+from prance import ResolvingParser, ValidationError
+from urllib.parse import urlparse
 from .models import HttpFileData, HttpClientBaseEnv, OpenApiParser, BaseURL
 from .models.settings.settings import HttpSettings, Filemode
 from .models.env_file.generator import generate_env_dicts
 import json
 
+def load_data(file: Path | str):
+    if isinstance(file, Path):
+        data = json.loads(Path(file).read_text())
+    else:
+        parsed = urlparse(file)
+        if parsed.scheme in ("http", "https") and parsed.netloc:
+            try:
+                with urllib.request.urlopen(file) as resp:
+                    charset = resp.headers.get_content_charset() or "utf-8"
+                    content = resp.read().decode(charset)
+                data = json.loads(content)
+            except Exception as e:
+                raise ValueError(f"Failed to download or parse OpenAPI from URL '{file}': {e}")
+        else:
+            # Treat as a local file path string
+            data = json.loads(Path(file).read_text())
+    try:
+        return ResolvingParser(spec_string=json.dumps(data)).specification
+    except ValidationError:
+        major, minor, patch = data.get("openapi").split(".")
+        if int(major) == 3 and (int(minor) > 0 or int(patch) > 0):
+            data["openapi"] = "3.1.0"
+            return ResolvingParser(spec_string=json.dumps(data)).specification
 
 class HtttpFileGenerator:
     env_files: dict[Path, HttpClientBaseEnv]
@@ -15,7 +42,8 @@ class HtttpFileGenerator:
         settings controls generation behavior (e.g., filemode). If not provided,
         defaults are loaded (SINGLE mode by default).
         """
-        parser = OpenApiParser(file)
+        data = load_data(file)
+        parser = OpenApiParser(data)
         components = parser.model.components
         security_schemes = components.securitySchemes if components else None
         self.http_file = HttpFileData.from_paths(
@@ -36,6 +64,7 @@ class HtttpFileGenerator:
             except Exception:
                 # Be defensive; if for any reason adding fails, continue with parsed servers
                 pass
+
 
     def to_http_file(self, out_path: Path):
         """Write HTTP file(s) based on the configured filemode.
