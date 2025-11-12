@@ -208,10 +208,14 @@ def handle_cookie_params(path: str, param: Parameter) -> HttpVariable | None:
         )
     else:
         value = {}
+    if param.description:
+        desc = param.description.strip()
+    else:
+        desc = ""
     return HttpVariable(
         name=param.name,
         value=str(value) or "",
-        description=param.description or "",
+        description=desc
     )
 
 
