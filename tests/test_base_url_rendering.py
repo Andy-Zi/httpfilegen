@@ -1,11 +1,12 @@
 from pathlib import Path
+from typing import cast
+from pydantic_core import Url
 from http_file_generator import HtttpFileGenerator
 from http_file_generator.models import HttpSettings
 
 
-def test_base_url_only_first_active(tmp_path: Path):
+def test_multiple_servers_create_multiple_environments(tmp_path: Path) -> None:
     # Spec with two servers; add a settings baseURL as well.
-    # Sorted order by URL will be: aaa < mmm < zzz
     spec = tmp_path / "spec.yaml"
     spec.write_text(
         """
@@ -14,8 +15,8 @@ info:
   title: X
   version: '1.0'
 servers:
-  - url: https://zzz.example.com
   - url: https://aaa.example.com
+  - url: https://zzz.example.com
 paths:
   /p:
     get:
@@ -26,18 +27,27 @@ paths:
     )
 
     out = tmp_path / "out.http"
-    gen = HtttpFileGenerator(spec, settings=HttpSettings(baseURL="https://mmm.example.com"))
-    gen.to_http_file(out)
+    public_env = tmp_path / "http-client.env.json"
+    private_env = tmp_path / "http-client.private.env.json"
 
+    gen = HtttpFileGenerator(
+        spec, settings=HttpSettings(baseURL=cast(Url, "https://mmm.example.com"))
+    )
+    gen.to_http_file(out)
+    gen.to_env_files(public_env, private_env, env_name="dev")
+
+    # Check HTTP file doesn't have shared block
     content = out.read_text()
-    # Collect lines in the Shared section with BASE_URL assignments
-    base_lines = [ln for ln in content.splitlines() if "BASE_URL=" in ln]
-    # Exactly one active assignment (no leading '#')
-    active = [ln for ln in base_lines if not ln.strip().startswith("#")]
-    commented = [ln for ln in base_lines if ln.strip().startswith("#")]
-    assert len(active) == 1
-    assert len(commented) >= 1
-    # The active one should be the smallest URL lexicographically: https://aaa.example.com
-    assert active[0].strip() == "@BASE_URL=https://aaa.example.com" 
-    # The settings-provided URL should be present but commented
-    assert any("# @BASE_URL=https://mmm.example.com" in ln for ln in commented)
+    assert "### Shared" not in content
+    assert "{{BASE_URL}}" in content
+
+    # Check env files have multiple environments with BASE_URL
+    env_content = public_env.read_text()
+    assert '"dev":' in env_content  # First server
+    assert '"dev2":' in env_content  # Second server
+    assert '"dev3":' in env_content  # Custom base URL
+
+    # Check BASE_URL values
+    assert '"BASE_URL": "https://aaa.example.com"' in env_content
+    assert '"BASE_URL": "https://zzz.example.com"' in env_content
+    assert '"BASE_URL": "https://mmm.example.com"' in env_content

@@ -2,7 +2,9 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 
-def test_generate_single_include_examples_from_schema(cli_app, sample_spec_path, tmp_path: Path):
+def test_generate_single_include_examples_from_schema(
+    cli_app, sample_spec_path, tmp_path: Path
+) -> None:
     runner = CliRunner()
     out_file = tmp_path / "with_examples.http"
     res = runner.invoke(
@@ -26,7 +28,9 @@ def test_generate_single_include_examples_from_schema(cli_app, sample_spec_path,
     assert "# <no example available>" in data
 
 
-def test_generate_single_include_examples_named_and_multi_content(cli_app, tmp_path: Path):
+def test_generate_single_include_examples_named_and_multi_content(
+    cli_app, tmp_path: Path
+) -> None:
     # Spec with multiple content types and named examples
     spec = tmp_path / "multi.yaml"
     spec.write_text(

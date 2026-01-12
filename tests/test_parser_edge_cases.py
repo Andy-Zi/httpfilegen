@@ -1,6 +1,7 @@
 from http_file_generator.models.http_file.open_api_parser import OpenApiParser
 
-def test_paths_without_responses(tmp_path):
+
+def test_paths_without_responses(tmp_path) -> None:
     spec = tmp_path / "noresp.yaml"
     spec.write_text(
         """
@@ -23,7 +24,7 @@ paths:
     assert "GET" in bodies and isinstance(bodies["GET"], dict)
 
 
-def test_no_servers(tmp_path):
+def test_no_servers(tmp_path) -> None:
     spec = tmp_path / "nosrv.yaml"
     spec.write_text(
         """

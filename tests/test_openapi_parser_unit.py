@@ -1,7 +1,7 @@
 from http_file_generator.models.http_file.open_api_parser import OpenApiParser
-from pathlib import Path
 
-def test_openapi_parser_helpers(tmp_path):
+
+def test_openapi_parser_helpers(tmp_path) -> None:
     spec = tmp_path / "api.yaml"
     spec.write_text(
         """
@@ -47,5 +47,11 @@ paths:
     path_params = p.get_path_params("/a")
     query_params = p.get_query_params("/a")
     assert "GET" in path_params and "GET" in query_params
-    assert any(pr.param_in == "path" for pr in path_params["GET"]) or path_params["GET"] == []
-    assert any(pr.param_in == "query" for pr in query_params["GET"]) or query_params["GET"] == []
+    assert (
+        any(pr.param_in == "path" for pr in path_params["GET"])
+        or path_params["GET"] == []
+    )
+    assert (
+        any(pr.param_in == "query" for pr in query_params["GET"])
+        or query_params["GET"] == []
+    )

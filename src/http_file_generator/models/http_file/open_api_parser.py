@@ -1,4 +1,4 @@
-from pathlib import Path
+from typing import Any
 from openapi_pydantic.v3.parser import OpenAPIv3
 from openapi_pydantic import (
     Server,
@@ -6,7 +6,7 @@ from openapi_pydantic import (
     Parameter,
     parse_obj,
 )
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 from jsf import JSF
 from faker.providers import BaseProvider
 
@@ -21,7 +21,7 @@ class Duration_provider(BaseProvider):
 class OpenApiParser(BaseModel):
     model: OpenAPIv3
 
-    def __init__(self, data: dict):
+    def __init__(self, data: dict) -> None:
         model = parse_obj(data)
         super().__init__(model=model)
 
@@ -41,7 +41,7 @@ class OpenApiParser(BaseModel):
             raise ValueError(f"Path '{path}' not found: paths is None")
         return self.model.paths[path]
 
-    def get_sample_for_path(self, path: str) -> dict[str, dict | None]:
+    def get_sample_for_path(self, path: str) -> dict[str, Any | None]:
         """return a sample example for the request body of the path's operations"""
         path_item = self.get_path_item(path)
         samples = {}
@@ -150,7 +150,9 @@ class OpenApiParser(BaseModel):
                         continue
                     schema = getattr(media, "media_type_schema", None)
                     if schema is not None:
-                        schema_dict = schema.model_dump(by_alias=True, exclude_none=True)
+                        schema_dict = schema.model_dump(
+                            by_alias=True, exclude_none=True
+                        )
                         if schema_dict:
                             requests[content_type] = self._generate_sample_from_schema(
                                 schema_dict
@@ -191,10 +193,12 @@ class OpenApiParser(BaseModel):
                             continue
                         schema = getattr(media, "media_type_schema", None)
                         if schema is not None:
-                            schema_dict = schema.model_dump(by_alias=True, exclude_none=True)
+                            schema_dict = schema.model_dump(
+                                by_alias=True, exclude_none=True
+                            )
                             if schema_dict:
-                                responses[content_type] = self._generate_sample_from_schema(
-                                    schema_dict
+                                responses[content_type] = (
+                                    self._generate_sample_from_schema(schema_dict)
                                 )
                     method_responses[status] = responses or None
                 responses_dict[method_name] = method_responses

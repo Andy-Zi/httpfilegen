@@ -1,7 +1,7 @@
 from typer.testing import CliRunner
 
 
-def test_sample(cli_app, sample_spec_path):
+def test_sample(cli_app, sample_spec_path) -> None:
     runner = CliRunner()
 
     res = runner.invoke(

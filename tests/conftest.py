@@ -1,3 +1,4 @@
+from typer.main import Typer
 import sys
 from pathlib import Path
 import textwrap
@@ -81,6 +82,7 @@ def sample_spec_path(tmp_path: Path) -> Path:
 
 
 @pytest.fixture()
-def cli_app():
+def cli_app() -> Typer:
     from cli import app  # type: ignore
+
     return app

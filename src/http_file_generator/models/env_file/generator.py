@@ -20,10 +20,13 @@ from openapi_pydantic.v3.v3_0 import Reference as Reference3_0
 from openapi_pydantic.v3.v3_1 import Reference as Reference3_1
 from openapi_pydantic.v3.v3_1.open_api import OpenAPI as OpenAPI3_1
 from openapi_pydantic.v3.v3_0.open_api import OpenAPI as OpenAPI3_0
+from openapi_pydantic.v3.v3_0 import Server as Server3_0
+from openapi_pydantic.v3.v3_1 import Server as Server3_1
 
 SecurityScheme = Union[SecurityScheme3_0, SecurityScheme3_1]
 Reference = Union[Reference3_0, Reference3_1]
 OpenAPI = Union[OpenAPI3_0, OpenAPI3_1]
+Server = Union[Server3_0, Server3_1]
 
 # Note: Public env uses the public schema; private env uses the private schema
 PUBLIC_SCHEMA_URL = "https://raw.githubusercontent.com/mistweaverco/kulala.nvim/main/schemas/http-client.env.schema.json"
@@ -121,11 +124,22 @@ def _build_oauth2_private_config(
     return secrets or None
 
 
-def generate_env_dicts(model: OpenAPI, env_name: str = "dev") -> tuple[dict, dict]:
+def generate_env_dicts(
+    model: OpenAPI,
+    env_name: str = "dev",
+    servers: list[Server] | None = None,
+    base_url_override: str | None = None,
+) -> tuple[dict, dict]:
     """
     Produce public (http-client.env.json) and private (http-client.private.env.json)
     skeletons for Kulala, based on the model's security schemes.
     Sensitive values are only placed in the private skeleton.
+
+    Args:
+        model: OpenAPI model
+        env_name: Base environment name (will be suffixed for multiple servers)
+        servers: List of servers from OpenAPI spec
+        base_url_override: Custom base URL to add as additional environment
     """
     # Start with pydantic models
     public_env_model = HttpClientEnv()
@@ -218,17 +232,77 @@ def generate_env_dicts(model: OpenAPI, env_name: str = "dev") -> tuple[dict, dic
         for k, v in private_vars.items():
             setattr(private_env_section, k, v)
 
-    # Attach the environment section under the env name
-    setattr(
-        public_env_model,
-        env_name,
-        public_env_section.model_dump(by_alias=True, exclude_none=True),
-    )
-    setattr(
-        private_env_model,
-        env_name,
-        private_env_section.model_dump(by_alias=True, exclude_none=True),
-    )
+    # Create environment sections for each server
+    env_sections = []
+
+    # Add environments from servers
+    if servers:
+        for i, server in enumerate(servers, 1):
+            env_name_suffix = "" if i == 1 else str(i)
+            env_key = f"{env_name}{env_name_suffix}"
+
+            # Create new section instances for each environment
+            public_section = EnvSection()
+            private_section = PrivateEnvSection()
+
+            # Add BASE_URL as extra field (models have extra="allow")
+            public_section.BASE_URL = server.url  # type: ignore
+
+            # Copy security if it exists
+            if public_env_section.security:
+                public_section.security = public_env_section.security
+            if private_env_section.security:
+                private_section.security = private_env_section.security
+
+            # Copy existing extra variables from private section
+            for k, v in private_env_section.__dict__.get(
+                "__pydantic_extra__", {}
+            ).items():
+                setattr(private_section, k, v)
+
+            env_sections.append((env_key, public_section, private_section))
+
+    # Add environment from base_url_override if provided
+    if base_url_override:
+        env_key = f"{env_name}{len(env_sections) + 1 if env_sections else ''}"
+
+        # Create new section instances
+        public_section = EnvSection()
+        private_section = PrivateEnvSection()
+
+        # Add BASE_URL to the public section
+        public_section.BASE_URL = base_url_override  # type: ignore
+
+        # Copy security if it exists
+        if public_env_section.security:
+            public_section.security = public_env_section.security
+        if private_env_section.security:
+            private_section.security = private_env_section.security
+
+        # Copy existing extra variables from private section
+        for k, v in private_env_section.__dict__.get("__pydantic_extra__", {}).items():
+            setattr(private_section, k, v)
+
+        env_sections.append((env_key, public_section, private_section))
+
+    # If no servers and no base_url_override, create a single environment
+    if not env_sections:
+        # Add default BASE_URL
+        public_env_section.BASE_URL = "https://api.example.com"  # type: ignore
+        env_sections.append((env_name, public_env_section, private_env_section))
+
+    # Attach all environment sections
+    for env_key, public_section, private_section in env_sections:
+        setattr(
+            public_env_model,
+            env_key,
+            public_section.model_dump(by_alias=True, exclude_none=True),
+        )
+        setattr(
+            private_env_model,
+            env_key,
+            private_section.model_dump(by_alias=True, exclude_none=True),
+        )
 
     # Dump to dicts preserving aliases and excluding None
     return (

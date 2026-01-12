@@ -2,7 +2,7 @@ import json
 from typer.testing import CliRunner
 
 
-def test_sample_filters(cli_app, tmp_path):
+def test_sample_filters(cli_app, tmp_path) -> None:
     spec_text = """
 openapi: 3.0.3
 info:
@@ -66,15 +66,18 @@ paths:
     assert "application/json" in resp["200"]
 
     # Filter by status 404 (no content) should produce empty or None mapping
-    res2 = runner.invoke(cli_app, [
-        "sample",
-        str(spec),
-        "/r",
-        "--method",
-        "get",
-        "--status",
-        "404",
-    ])
+    res2 = runner.invoke(
+        cli_app,
+        [
+            "sample",
+            str(spec),
+            "/r",
+            "--method",
+            "get",
+            "--status",
+            "404",
+        ],
+    )
     assert res2.exit_code == 0, res2.output
     data2 = json.loads(res2.output)
     assert "GET" in data2["response"]

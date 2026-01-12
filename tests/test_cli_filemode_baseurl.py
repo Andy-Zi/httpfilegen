@@ -2,7 +2,9 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 
-def test_generate_multi_mode_creates_tree_and_env(cli_app, sample_spec_path, tmp_path: Path):
+def test_generate_multi_mode_creates_tree_and_env(
+    cli_app, sample_spec_path, tmp_path: Path
+) -> None:
     runner = CliRunner()
     out = tmp_path / "out.http"
     res = runner.invoke(
@@ -31,12 +33,14 @@ def test_generate_multi_mode_creates_tree_and_env(cli_app, sample_spec_path, tmp
     assert private_env.exists()
 
     content = path_file.read_text()
-    assert "### Shared" in content
     # Should contain at least one operation from the sample
     assert "GET" in content or "POST" in content
+    assert "{{BASE_URL}}" in content
 
 
-def test_generate_single_mode_with_base_url(cli_app, sample_spec_path, tmp_path: Path):
+def test_generate_single_mode_with_base_url(
+    cli_app, sample_spec_path, tmp_path: Path
+) -> None:
     runner = CliRunner()
     out = tmp_path / "single.http"
     res = runner.invoke(
@@ -53,12 +57,16 @@ def test_generate_single_mode_with_base_url(cli_app, sample_spec_path, tmp_path:
     )
     assert res.exit_code == 0, res.output
     assert out.exists()
-    data = out.read_text()
-    # The explicit base URL should be included in the Shared section
-    assert "@BASE_URL=https://custom.example.com" in data
+
+    # Check that env files contain the custom base URL
+    public_env = out.parent / "http-client.env.json"
+    assert public_env.exists()
+    env_data = public_env.read_text()
+    # The custom base URL should create an additional environment
+    assert '"BASE_URL": "https://custom.example.com"' in env_data
 
 
-def test_batch_multi_mode(cli_app, tmp_path: Path):
+def test_batch_multi_mode(cli_app, tmp_path: Path) -> None:
     # Build two tiny specs
     a = tmp_path / "a.yaml"
     a.write_text(

@@ -2,7 +2,9 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 
-def test_batch_include_schema_generates_request_examples(cli_app, tmp_path: Path):
+def test_batch_include_schema_generates_request_examples(
+    cli_app, tmp_path: Path
+) -> None:
     # First spec: named examples and plain text
     a = tmp_path / "a.yaml"
     a.write_text(

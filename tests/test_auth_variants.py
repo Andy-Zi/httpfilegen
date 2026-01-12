@@ -1,6 +1,7 @@
 from typer.testing import CliRunner
 
-def _run_and_get(cli_app, spec_text: str, path: str):
+
+def _run_and_get(cli_app, spec_text: str, path: str) -> str:
     from pathlib import Path
     from tempfile import TemporaryDirectory
 
@@ -9,12 +10,14 @@ def _run_and_get(cli_app, spec_text: str, path: str):
         spec = Path(d) / "s.yaml"
         spec.write_text(spec_text)
         out = Path(d) / "o.http"
-        res = runner.invoke(cli_app, ["generate", str(spec), "--out", str(out), "--overwrite"])
+        res = runner.invoke(
+            cli_app, ["generate", str(spec), "--out", str(out), "--overwrite"]
+        )
         assert res.exit_code == 0, res.output
         return out.read_text()
 
 
-def test_http_basic_and_digest(cli_app):
+def test_http_basic_and_digest(cli_app) -> None:
     spec = """
 openapi: 3.0.3
 info:
@@ -51,7 +54,7 @@ paths:
     assert "Authorization: Digest {{DIGEST_USERNAME}}:{{DIGEST_PASSWORD}}" in data
 
 
-def test_http_ntlm_and_negotiate(cli_app):
+def test_http_ntlm_and_negotiate(cli_app) -> None:
     spec = """
 openapi: 3.0.3
 info:
@@ -88,7 +91,7 @@ paths:
     assert "Authorization: Negotiate" in data
 
 
-def test_api_key_cookie(cli_app):
+def test_api_key_cookie(cli_app) -> None:
     spec = """
 openapi: 3.0.3
 info:

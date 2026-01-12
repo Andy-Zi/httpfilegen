@@ -2,7 +2,7 @@ from pathlib import Path
 import json
 
 
-def test_generate_env_files_from_model(sample_spec_path, tmp_path: Path):
+def test_generate_env_files_from_model(sample_spec_path, tmp_path: Path) -> None:
     from http_file_generator import HtttpFileGenerator
 
     gen = HtttpFileGenerator(sample_spec_path)

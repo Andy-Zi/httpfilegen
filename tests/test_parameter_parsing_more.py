@@ -4,26 +4,31 @@ from http_file_generator.models.http_file.var import HttpVariable
 
 
 class Loc:
-    def __init__(self, v):
+    def __init__(self, v) -> None:
         self.value = v
 
 
 class ParamStub:
-    def __init__(self, name, where, schema_dict=None, example=None, examples=None, description=""):
+    def __init__(
+        self, name, where, schema_dict=None, example=None, examples=None, description: str=""
+    ) -> None:
         self.name = name
         self.param_in = Loc(where)
         self.description = description
         self.example = example
         self.examples = examples
+
         class S:
-            def __init__(self, d):
+            def __init__(self, d) -> None:
                 self._d = d
+
             def model_dump(self, **kwargs):
                 return self._d
+
         self.param_schema = S(schema_dict) if schema_dict is not None else None
 
 
-def test_handle_path_params_ok_and_error():
+def test_handle_path_params_ok_and_error() -> None:
     p = ParamStub("id", "path")
     new_path, var = pp.handle_path_params("/users/{id}", p)
     assert new_path == "/users/{{id}}"
@@ -33,14 +38,14 @@ def test_handle_path_params_ok_and_error():
         pp.handle_path_params("/users", p)
 
 
-def test_handle_query_params_ampersand():
+def test_handle_query_params_ampersand() -> None:
     p = ParamStub("q", "query", schema_dict={"type": "string"})
     path, var = pp.handle_query_params("/x?y={{y}}", p)
     assert "\n&q={{q}}" in path
     assert var.name == "q"
 
 
-def test_handle_params_all_locations():
+def test_handle_params_all_locations() -> None:
     params = [
         ParamStub("id", "path"),
         ParamStub("q", "query", schema_dict={"type": "string"}),
@@ -54,28 +59,26 @@ def test_handle_params_all_locations():
     assert "\n?q={{q}}" in path or "\n&?q={{q}}" not in path
 
 
-def test_handle_params_unknown_location_raises():
+def test_handle_params_unknown_location_raises() -> None:
     p = ParamStub("x", "unknown")
     with pytest.raises(NotImplementedError):
         pp.handle_params("/p", [p])
 
 
-def test_generate_sample_param_from_schema_object_returns_str():
+def test_generate_sample_param_from_schema_object_returns_str() -> None:
     out = pp._generate_sample_param_from_schema({"type": "object"})
     assert isinstance(out, str)
 
 
-def test_generate_sample_param_from_schema_array_returns_first():
-    out = pp._generate_sample_param_from_schema({
-        "type": "array",
-        "items": {"type": "string"},
-        "minItems": 1
-    })
+def test_generate_sample_param_from_schema_array_returns_first() -> None:
+    out = pp._generate_sample_param_from_schema(
+        {"type": "array", "items": {"type": "string"}, "minItems": 1}
+    )
     # Could be string
     assert isinstance(out, (str, int, float, bool))
 
 
-def test_generate_sample_param_from_schema_error_raises():
+def test_generate_sample_param_from_schema_error_raises() -> None:
     with pytest.raises(ValueError):
         # Invalid type may trigger failure in jsf
         pp._generate_sample_param_from_schema({"type": "something_invalid"})

@@ -1,15 +1,17 @@
-from pathlib import Path
-
 import json
 import urllib.request
-from prance import ResolvingParser, ValidationError
+from pathlib import Path
 from urllib.parse import urlparse
-from .models import HttpFileData, HttpClientBaseEnv, OpenApiParser, BaseURL
-from .models.settings.settings import HttpSettings, Filemode
-from .models.env_file.generator import generate_env_dicts
-import json
+from typing import Any
 
-def load_data(file: Path | str):
+from prance import ResolvingParser, ValidationError
+
+from .models import BaseURL, HttpClientBaseEnv, HttpFileData, OpenApiParser
+from .models.env_file.generator import generate_env_dicts
+from .models.settings.settings import Filemode, HttpSettings
+
+
+def load_data(file: Path | str) -> Any:
     if isinstance(file, Path):
         data = json.loads(Path(file).read_text())
     else:
@@ -21,7 +23,9 @@ def load_data(file: Path | str):
                     content = resp.read().decode(charset)
                 data = json.loads(content)
             except Exception as e:
-                raise ValueError(f"Failed to download or parse OpenAPI from URL '{file}': {e}")
+                raise ValueError(
+                    f"Failed to download or parse OpenAPI from URL '{file}': {e}"
+                )
         else:
             # Treat as a local file path string
             data = json.loads(Path(file).read_text())
@@ -33,10 +37,11 @@ def load_data(file: Path | str):
             data["openapi"] = "3.1.0"
             return ResolvingParser(spec_string=json.dumps(data)).specification
 
+
 class HtttpFileGenerator:
     env_files: dict[Path, HttpClientBaseEnv]
 
-    def __init__(self, file: str | Path, settings: HttpSettings | None = None):
+    def __init__(self, file: str | Path, settings: HttpSettings | None = None) -> None:
         """Initialize with a local file path or a remote URL to an OpenAPI spec.
 
         settings controls generation behavior (e.g., filemode). If not provided,
@@ -65,8 +70,7 @@ class HtttpFileGenerator:
                 # Be defensive; if for any reason adding fails, continue with parsed servers
                 pass
 
-
-    def to_http_file(self, out_path: Path):
+    def to_http_file(self, out_path: Path) -> None:
         """Write HTTP file(s) based on the configured filemode.
 
         - SINGLE: Write a single .http file to out_path (existing behavior).
@@ -91,13 +95,23 @@ class HtttpFileGenerator:
             out_dir = out_path
         self.to_http_files(out_dir)
 
-    def to_env_files(self, public_out: Path, private_out: Path, env_name: str = "dev"):
+    def to_env_files(
+        self, public_out: Path, private_out: Path, env_name: str = "dev"
+    ) -> None:
         """
         Generate http-client.env.json and http-client.private.env.json skeletons
         based on the OpenAPI security schemes.
         """
+        servers = self._openapi_model.servers or []
+        base_url_override = (
+            str(self.settings.baseURL) if self.settings.baseURL else None
+        )
+
         public_env, private_env = generate_env_dicts(
-            self._openapi_model, env_name=env_name
+            self._openapi_model,
+            env_name=env_name,
+            servers=servers,
+            base_url_override=base_url_override,
         )
         with Path.open(public_out, "w") as f:
             json.dump(public_env, f, indent=2)
@@ -117,7 +131,7 @@ class HtttpFileGenerator:
             groups.setdefault(base_path, []).append(req)
         return groups
 
-    def to_http_files(self, out_dir: Path, filename: str = "index.http"):
+    def to_http_files(self, out_dir: Path, filename: str = "index.http") -> None:
         """Write one .http file per API path under out_dir.
 
         The directory structure mirrors the path segments. For example, a path

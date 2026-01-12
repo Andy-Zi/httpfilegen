@@ -1,9 +1,11 @@
-import typer
-from pathlib import Path
-from typing import Optional, List, Dict, Any
 import json
+from pathlib import Path
+from typing import Any, NoReturn
+
+import typer
+
 from http_file_generator import HtttpFileGenerator
-from http_file_generator.models import OpenApiParser, METHOD, HttpSettings, Filemode
+from http_file_generator.models import METHOD, Filemode, HttpSettings, OpenApiParser
 
 app = typer.Typer(
     help="Generate .http files and env files from an OpenAPI spec.",
@@ -12,12 +14,12 @@ app = typer.Typer(
 )
 
 
-def _abort(msg: str, code: int = 1):
+def _abort(msg: str, code: int = 1) -> NoReturn:
     typer.secho(msg, fg=typer.colors.RED, err=True)
     raise typer.Exit(code)
 
 
-def _json_print(data: Any):
+def _json_print(data: Any) -> None:
     typer.echo(json.dumps(data, indent=2, ensure_ascii=False, default=str))
 
 
@@ -36,25 +38,25 @@ def _validate_spec_source(spec: str | Path) -> str | Path:
     return p
 
 
-def _ensure_write_target(path: Path, overwrite: bool):
+def _ensure_write_target(path: Path, overwrite: bool) -> None:
     if path.exists() and not overwrite:
         _abort(f"Refusing to overwrite existing file without --overwrite: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
 
 
-def _method_upper_list(methods: Optional[List[str]]) -> Optional[List[str]]:
+def _method_upper_list(methods: list[str] | None) -> list[str] | None:
     if methods is None:
         return None
-    result: List[str] = []
+    result: list[str] = []
     for m in methods:
         mu = m.upper()
-        if mu not in METHOD.__members__.keys() and mu not in {e.value for e in METHOD}:
+        if mu not in METHOD.__members__ and mu not in {e.value for e in METHOD}:
             _abort(f"Unknown method: {m}")
         result.append(mu)
     return result
 
 
-def _parse_filemode(value: Optional[str]) -> Filemode:
+def _parse_filemode(value: str | None) -> Filemode:
     if value is None:
         return Filemode.SINGLE
     v = value.strip().lower()
@@ -67,22 +69,22 @@ def _parse_filemode(value: Optional[str]) -> Filemode:
 
 @app.command("generate")
 def generate(
-    spec: str = typer.Argument(
+    spec: str | Path = typer.Argument(
         ..., help="Path or URL to the OpenAPI spec (yaml/json)."
     ),
-    out: Optional[Path] = typer.Option(
+    out: Path | None = typer.Option(
         None,
         "--out",
         "-o",
         help="Output .http file path. Defaults to <spec>.http next to the spec.",
     ),
-    filemode: Optional[str] = typer.Option(
+    filemode: str | None = typer.Option(
         None,
         "--filemode",
         "-f",
         help="File generation mode: SINGLE (one .http) or MULTI (one per path).",
     ),
-    base_url: Optional[str] = typer.Option(
+    base_url: str | None = typer.Option(
         None,
         "--base-url",
         help="Optional base URL to include in generated .http files.",
@@ -108,7 +110,7 @@ def generate(
     env_name: str = typer.Option(
         "dev", "--env-name", help="Environment section name for env files."
     ),
-    env_dir: Optional[Path] = typer.Option(
+    env_dir: Path | None = typer.Option(
         None,
         "--env-dir",
         help="Directory where env files will be written. Defaults to the .http file directory.",
@@ -121,7 +123,7 @@ def generate(
         "--private-env-filename",
         help="Private env filename.",
     ),
-):
+) -> None:
     """
     Generate a .http file from an OpenAPI spec.
     Optionally also generate http-client env files.
@@ -130,13 +132,12 @@ def generate(
     # Derive output path (file or directory depending on filemode)
     if out is not None:
         out_path = out
+    elif _is_url(spec):
+        # derive name from URL path segment
+        name = Path(str(spec).rstrip("/").split("/")[-1]).stem or "openapi"
+        out_path = Path.cwd() / f"{name}.http"
     else:
-        if _is_url(spec):
-            # derive name from URL path segment
-            name = Path(str(spec).rstrip("/").split("/")[-1]).stem or "openapi"
-            out_path = Path.cwd() / f"{name}.http"
-        else:
-            out_path = Path(spec).with_suffix(".http")
+        out_path = Path(spec).with_suffix(".http")
 
     try:
         fm = _parse_filemode(filemode)
@@ -161,9 +162,13 @@ def generate(
         default_env_dir = out_path.parent
     else:
         # MULTI mode: resolve target directory
-        target_dir = out_path.parent / out_path.stem if out_path.suffix == ".http" else out_path
+        target_dir = (
+            out_path.parent / out_path.stem if out_path.suffix == ".http" else out_path
+        )
         if target_dir.exists() and not overwrite:
-            _abort(f"Refusing to overwrite existing directory without --overwrite: {target_dir}")
+            _abort(
+                f"Refusing to overwrite existing directory without --overwrite: {target_dir}"
+            )
         target_dir.mkdir(parents=True, exist_ok=True)
         try:
             gen.to_http_file(target_dir)
@@ -198,7 +203,7 @@ def gen_env(
     spec: str = typer.Argument(
         ..., help="Path or URL to the OpenAPI spec (yaml/json)."
     ),
-    out_dir: Optional[Path] = typer.Option(
+    out_dir: Path | None = typer.Option(
         None,
         "--out-dir",
         "-d",
@@ -216,7 +221,7 @@ def gen_env(
         "--private-env-filename",
         help="Private env filename.",
     ),
-):
+) -> None:
     """
     Generate only http-client env files from the OpenAPI security schemes.
     """
@@ -245,7 +250,7 @@ def info(
         ..., help="Path or URL to the OpenAPI spec (yaml/json)."
     ),
     json_out: bool = typer.Option(False, "--json", help="Output as JSON."),
-):
+) -> None:
     """
     Print a summary of the OpenAPI spec: servers, paths, methods, and security schemes.
     """
@@ -261,7 +266,7 @@ def info(
     ]
     paths_dict = parser.model.paths or {}
     total_paths = len(paths_dict)
-    method_counts: Dict[str, int] = {}
+    method_counts: dict[str, int] = {}
     for p, item in paths_dict.items():
         for m in METHOD:
             if getattr(item, m.lower(), None) is not None:
@@ -304,7 +309,7 @@ def list_paths(
     spec: str = typer.Argument(
         ..., help="Path or URL to the OpenAPI spec (yaml/json)."
     ),
-    method: Optional[List[str]] = typer.Option(
+    method: list[str] | None = typer.Option(
         None,
         "--method",
         "-m",
@@ -313,7 +318,7 @@ def list_paths(
     with_methods: bool = typer.Option(
         True, "--with-methods/--no-with-methods", help="Show methods next to each path."
     ),
-):
+) -> None:
     """
     List all paths in the spec, optionally filtered by HTTP methods.
     """
@@ -338,9 +343,11 @@ def list_paths(
 
 @app.command("sample")
 def sample(
-    spec: str = typer.Argument(..., help="Path or URL to the OpenAPI spec (yaml/json)."),
+    spec: str = typer.Argument(
+        ..., help="Path or URL to the OpenAPI spec (yaml/json)."
+    ),
     path: str = typer.Argument(..., help="The API path to inspect, e.g. /users/{id}."),
-    method: Optional[str] = typer.Option(
+    method: str | None = typer.Option(
         None, "--method", "-m", help="HTTP method to show. Defaults to all."
     ),
     request: bool = typer.Option(
@@ -349,13 +356,15 @@ def sample(
     response: bool = typer.Option(
         True, "--response/--no-response", help="Include response body samples."
     ),
-    status: Optional[str] = typer.Option(
+    status: str | None = typer.Option(
         None, "--status", help="Filter a specific response HTTP status."
     ),
-    content_type: Optional[str] = typer.Option(
-        None, "--content-type", help="Filter a specific content type."
+    content_type: str | None = typer.Option(
+        None,
+        "--content-type",
+        help="Filter a specific content type.",
     ),
-):
+) -> None:
     """
     Print generated request/response body samples for a path (and optionally a method).
     """
@@ -373,21 +382,20 @@ def sample(
     except Exception as e:
         _abort(f"Failed to parse spec or find path: {e}")
 
-    result: Dict[str, Any] = {"path": path}
+    result: dict[str, Any] = {"path": path}
     if request:
         reqs = parser.get_request_body(path)
         if m_upper:
             reqs = {m_upper: reqs.get(m_upper)}
         if content_type:
-            filt: Dict[str, Any] = {}
+            filt: dict[str, Any] = {}
             for m, body in reqs.items():
                 if not body:
                     filt[m] = None
+                elif content_type in body:
+                    filt[m] = {content_type: body[content_type]}
                 else:
-                    if content_type in body:
-                        filt[m] = {content_type: body[content_type]}
-                    else:
-                        filt[m] = None
+                    filt[m] = None
             reqs = filt
         result["request"] = reqs
     if response:
@@ -400,12 +408,12 @@ def sample(
                 for m, bodies in resps.items()
             }
         if content_type:
-            filt_resp: Dict[str, Any] = {}
+            filt_resp: dict[str, Any] = {}
             for m, bodies in resps.items():
                 if not bodies:
                     filt_resp[m] = {}
                     continue
-                new_status_map: Dict[str, Any] = {}
+                new_status_map: dict[str, Any] = {}
                 for st, cts in bodies.items():
                     if cts and content_type in cts:
                         new_status_map[st] = {content_type: cts[content_type]}
@@ -427,13 +435,13 @@ def batch(
         "-p",
         help="Glob(s) for spec files, comma-separated.",
     ),
-    filemode: Optional[str] = typer.Option(
+    filemode: str | None = typer.Option(
         None,
         "--filemode",
         "-f",
         help="File generation mode: SINGLE (one .http) or MULTI (one per path).",
     ),
-    base_url: Optional[str] = typer.Option(
+    base_url: str | None = typer.Option(
         None,
         "--base-url",
         help="Optional base URL to include in generated .http files.",
@@ -455,14 +463,14 @@ def batch(
         True, "--env/--no-env", help="Also generate env files for each spec."
     ),
     env_name: str = typer.Option("dev", "--env-name", help="Environment section name."),
-):
+) -> None:
     """
     Process a directory of OpenAPI specs (or a single file) and generate .http (+ env) for each.
     """
     processed = 0
-    failures: List[Dict[str, str]] = []
+    failures: list[dict[str, str]] = []
 
-    files: List[Path] = []
+    files: list[Path] = []
     if input_path.is_file():
         files = [input_path]
     elif input_path.is_dir():
@@ -514,7 +522,10 @@ def batch(
             if fm == Filemode.SINGLE:
                 typer.secho(f"Generated: {out_file}", fg=typer.colors.GREEN)
             else:
-                typer.secho(f"Generated (MULTI): {spec} -> {env_base_dir}", fg=typer.colors.GREEN)
+                typer.secho(
+                    f"Generated (MULTI): {spec} -> {env_base_dir}",
+                    fg=typer.colors.GREEN,
+                )
         except Exception as e:
             failures.append({"spec": str(spec), "error": str(e)})
             typer.secho(f"Failed: {spec} -> {e}", fg=typer.colors.RED)
@@ -530,7 +541,7 @@ def batch(
             typer.echo(f"  - {f['spec']}: {f['error']}")
 
 
-def main():
+def main() -> None:
     app()
 
 

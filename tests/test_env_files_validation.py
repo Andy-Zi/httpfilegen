@@ -1,9 +1,12 @@
-import json
-from http_file_generator.models.env_file.env_files import OAuth2Auth, PrivateOAuth2Auth, validate_url
+from http_file_generator.models.env_file.env_files import (
+    OAuth2Auth,
+    PrivateOAuth2Auth,
+    validate_url,
+)
 import pytest
 
 
-def test_oauth2auth_validation_urls_and_defaults():
+def test_oauth2auth_validation_urls_and_defaults() -> None:
     # Valid auth code flow with PKCE
     auth = OAuth2Auth(
         **{
@@ -30,13 +33,13 @@ def test_oauth2auth_validation_urls_and_defaults():
         )
 
 
-def test_private_oauth2auth_partial_secrets():
+def test_private_oauth2auth_partial_secrets() -> None:
     # Private can accept partial secret configuration
     prv = PrivateOAuth2Auth(**{"Client Secret": "secret"})
     assert prv.client_secret == "secret"
 
 
-def test_validate_url_helper():
+def test_validate_url_helper() -> None:
     assert validate_url("https://example.com") == "https://example.com"
     assert validate_url("http://localhost:8080/api") == "http://localhost:8080/api"
     with pytest.raises(ValueError):

@@ -60,19 +60,15 @@ class HttpRequest(BaseModel):
     # Collected response examples (all statuses/content-types) for this operation
     response_examples: list[dict[str, Any]] | None = Field(
         default=None,
-        description=(
-            "List of example entries: {status, content_type, name?, value}."
-        ),
+        description=("List of example entries: {status, content_type, name?, value}."),
     )
     # Collected request body examples (all content-types) for this operation
     request_examples: list[dict[str, Any]] | None = Field(
         default=None,
-        description=(
-            "List of request examples: {content_type, name?, value}."
-        ),
+        description=("List of request examples: {content_type, name?, value}."),
     )
 
-    def _frontmatter(self):
+    def _frontmatter(self) -> str:
         lines = ""
         lines += SEPARATOR
         lines += f"### Request: {self.method} {self.path.replace('\n', '')}\n"
@@ -92,14 +88,14 @@ class HttpRequest(BaseModel):
         lines += "\n\n"
         return lines
 
-    def _body(self):
+    def _body(self) -> str:
         lines = ""
         if self.body:
             lines += json.dumps(self.body, indent=4)
             lines += "\n"
         return lines
 
-    def _params(self):
+    def _params(self) -> str:
         lines = ""
         if not self.params:
             return lines

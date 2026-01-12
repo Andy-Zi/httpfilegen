@@ -86,7 +86,10 @@ def apply_security(
                 user_var = f"{alias_upper}_USERNAME"
                 pass_var = f"{alias_upper}_PASSWORD"
                 out_headers["Authorization"] = (
-                    "Digest " + ("{{" + user_var + "}}") + ":" + ("{{" + pass_var + "}}")
+                    "Digest "
+                    + ("{{" + user_var + "}}")
+                    + ":"
+                    + ("{{" + pass_var + "}}")
                 )
             elif http_scheme == "ntlm":
                 out_headers["Authorization"] = "NTLM"

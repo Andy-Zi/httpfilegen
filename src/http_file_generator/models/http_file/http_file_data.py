@@ -29,7 +29,7 @@ class HttpFileData(BaseModel):
         paths: dict[str, PathItem],
         root_security: list[dict] | None = None,
         security_schemes: dict[str, Union[SecurityScheme, Reference]] | None = None,
-    ):
+    ) -> "HttpFileData":
         """
         Convert a paths object to a list of HTTP requests
         """
@@ -58,30 +58,14 @@ class HttpFileData(BaseModel):
             requests=requests,
         )
 
-    def to_http_file(self, include_examples: bool = False, include_schema: bool = False):
+    def to_http_file(
+        self, include_examples: bool = False, include_schema: bool = False
+    ) -> str:
         """
         Convert the data to an HTTP file string
         """
-        http_file = ""
-        base_lines = []
-        # shared params
-        http_file += "### Shared\n\n"
-        # Deterministic order, then comment-out all but the first
-        ordered_base_urls = sorted(list(self.base_urls), key=lambda b: b.value)
-        if ordered_base_urls:
-            # First stays active
-            base_lines.append(str(ordered_base_urls[0]).rstrip("\n"))
-            # Others are commented to avoid multiple active BASE_URL declarations
-            for bu in ordered_base_urls[1:]:
-                for ln in str(bu).splitlines():
-                    if ln.strip():
-                        base_lines.append(f"# {ln}")
-                    else:
-                        base_lines.append("")
-        http_file += "\n".join(base_lines) + "\n\n\n"
-
         # requests
-        http_file += "\n\n".join(
+        return "\n\n".join(
             request.to_http_file(
                 base_url="{{BASE_URL}}",
                 include_examples=include_examples,
@@ -89,4 +73,3 @@ class HttpFileData(BaseModel):
             )
             for request in self.requests
         )
-        return http_file

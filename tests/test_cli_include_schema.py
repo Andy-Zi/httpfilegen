@@ -1,7 +1,8 @@
 from pathlib import Path
 from typer.testing import CliRunner
 
-def test_generate_include_schema_and_examples(cli_app, tmp_path: Path):
+
+def test_generate_include_schema_and_examples(cli_app, tmp_path: Path) -> None:
     spec = tmp_path / "req_examples.yaml"
     spec.write_text(
         """

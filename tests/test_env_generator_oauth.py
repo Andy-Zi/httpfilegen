@@ -2,7 +2,7 @@ import json
 from typer.testing import CliRunner
 
 
-def test_env_oauth2_public_private(cli_app, tmp_path):
+def test_env_oauth2_public_private(cli_app, tmp_path) -> None:
     # Spec with oauth2 client credentials
     spec_text = """
 openapi: 3.0.3
@@ -34,7 +34,9 @@ paths:
 
     runner = CliRunner()
     out_file = tmp_path / "ping.http"
-    res = runner.invoke(cli_app, ["generate", str(spec), "--out", str(out_file), "--overwrite"])
+    res = runner.invoke(
+        cli_app, ["generate", str(spec), "--out", str(out_file), "--overwrite"]
+    )
     assert res.exit_code == 0, res.output
 
     public_env = out_file.parent / "http-client.env.json"

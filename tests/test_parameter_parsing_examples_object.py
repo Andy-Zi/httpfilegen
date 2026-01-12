@@ -1,15 +1,18 @@
 from http_file_generator.models.utils.parameter_parsing import handle_params
 
+
 class Loc:
-    def __init__(self, v):
+    def __init__(self, v) -> None:
         self.value = v
 
+
 class ExampleObj:
-    def __init__(self, value):
+    def __init__(self, value) -> None:
         self.value = value
 
+
 class Param:
-    def __init__(self, name, where, example=None, examples=None):
+    def __init__(self, name, where, example=None, examples=None) -> None:
         self.name = name
         self.param_in = Loc(where)
         self.description = ""
@@ -18,7 +21,7 @@ class Param:
         self.param_schema = None
 
 
-def test_examples_object_value_for_param():
+def test_examples_object_value_for_param() -> None:
     p = Param("foo", "query", examples={"e1": ExampleObj("bar")})
     path, vars = handle_params("/x", [p])
     assert any(v.name == "foo" and v.value == "bar" for v in vars)

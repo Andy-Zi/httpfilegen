@@ -1,7 +1,7 @@
 from http_file_generator.models.http_file.open_api_parser import OpenApiParser
 
 
-def test_get_sample_for_path_with_examples_and_none(tmp_path):
+def test_get_sample_for_path_with_examples_and_none(tmp_path) -> None:
     spec = tmp_path / "samp.yaml"
     spec.write_text(
         """

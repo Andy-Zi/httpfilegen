@@ -1,7 +1,7 @@
-from pathlib import Path
 from typer.testing import CliRunner
 
-def test_apply_security_api_key_header(cli_app, tmp_path):
+
+def test_apply_security_api_key_header(cli_app, tmp_path) -> None:
     # Build a simple spec with apiKey in header and one GET path
     spec_text = """
 openapi: 3.0.3
@@ -30,7 +30,9 @@ paths:
 
     runner = CliRunner()
     out_file = tmp_path / "secure.http"
-    res = runner.invoke(cli_app, ["generate", str(spec), "--out", str(out_file), "--overwrite"])
+    res = runner.invoke(
+        cli_app, ["generate", str(spec), "--out", str(out_file), "--overwrite"]
+    )
     assert res.exit_code == 0, res.output
 
     data = out_file.read_text()
@@ -38,7 +40,7 @@ paths:
     assert "X-API-Key: {{APIKEYAUTH}}" in data
 
 
-def test_apply_security_api_key_query(cli_app, tmp_path):
+def test_apply_security_api_key_query(cli_app, tmp_path) -> None:
     spec_text = """
 openapi: 3.0.3
 info:
@@ -66,7 +68,9 @@ paths:
 
     runner = CliRunner()
     out_file = tmp_path / "secure_q.http"
-    res = runner.invoke(cli_app, ["generate", str(spec), "--out", str(out_file), "--overwrite"])
+    res = runner.invoke(
+        cli_app, ["generate", str(spec), "--out", str(out_file), "--overwrite"]
+    )
     assert res.exit_code == 0, res.output
 
     data = out_file.read_text()
@@ -74,7 +78,7 @@ paths:
     assert "GET {{BASE_URL}}/secure\n?api_key={{APIKEYAUTH}}" in data
 
 
-def test_apply_security_bearer(cli_app, tmp_path):
+def test_apply_security_bearer(cli_app, tmp_path) -> None:
     spec_text = """
 openapi: 3.0.3
 info:
@@ -101,7 +105,9 @@ paths:
 
     runner = CliRunner()
     out_file = tmp_path / "secure_bearer.http"
-    res = runner.invoke(cli_app, ["generate", str(spec), "--out", str(out_file), "--overwrite"])
+    res = runner.invoke(
+        cli_app, ["generate", str(spec), "--out", str(out_file), "--overwrite"]
+    )
     assert res.exit_code == 0, res.output
 
     data = out_file.read_text()

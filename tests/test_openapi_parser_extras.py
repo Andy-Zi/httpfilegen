@@ -1,7 +1,7 @@
 from typer.testing import CliRunner
 
 
-def test_parser_path_and_query_extraction(cli_app, tmp_path):
+def test_parser_path_and_query_extraction(cli_app, tmp_path) -> None:
     spec_text = """
 openapi: 3.0.3
 info:
@@ -39,7 +39,9 @@ paths:
 
     runner = CliRunner()
     out_file = tmp_path / "users.http"
-    res = runner.invoke(cli_app, ["generate", str(spec), "--out", str(out_file), "--overwrite"])
+    res = runner.invoke(
+        cli_app, ["generate", str(spec), "--out", str(out_file), "--overwrite"]
+    )
     assert res.exit_code == 0, res.output
 
     content = out_file.read_text()

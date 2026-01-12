@@ -2,7 +2,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 
-def test_examples_sections_do_not_break_requests(cli_app, tmp_path: Path):
+def test_examples_sections_do_not_break_requests(cli_app, tmp_path: Path) -> None:
     # Ensure that examples headers don't create new requests and remain commented
     spec = tmp_path / "ex.yaml"
     spec.write_text(
@@ -48,4 +48,4 @@ paths:
     assert "### Response Examples" in txt
     # Commented values
     assert "# {" in txt
-    assert "# \"v\": 1" in txt or '\"v\": 1' in txt
+    assert '# "v": 1' in txt or '"v": 1' in txt

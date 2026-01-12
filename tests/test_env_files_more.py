@@ -2,7 +2,7 @@ from http_file_generator.models.env_file.env_files import OAuth2Auth, PrivateOAu
 import pytest
 
 
-def test_oauth2_implicit_requires_auth_url():
+def test_oauth2_implicit_requires_auth_url() -> None:
     with pytest.raises(ValueError):
         OAuth2Auth(
             **{
@@ -15,7 +15,7 @@ def test_oauth2_implicit_requires_auth_url():
         )
 
 
-def test_oauth2_device_authorization_requires_device_url():
+def test_oauth2_device_authorization_requires_device_url() -> None:
     with pytest.raises(ValueError):
         OAuth2Auth(
             **{
@@ -28,6 +28,8 @@ def test_oauth2_device_authorization_requires_device_url():
         )
 
 
-def test_private_oauth2_permissive_accepts_partial():
-    prv = PrivateOAuth2Auth(**{"Grant Type": "Client Credentials", "Client Secret": "s"})
+def test_private_oauth2_permissive_accepts_partial() -> None:
+    prv = PrivateOAuth2Auth(
+        **{"Grant Type": "Client Credentials", "Client Secret": "s"}
+    )
     assert prv.client_secret == "s"

@@ -3,10 +3,12 @@ from pathlib import Path
 import json
 
 
-def test_generate_no_env(cli_app, sample_spec_path, tmp_path: Path):
+def test_generate_no_env(cli_app, sample_spec_path, tmp_path: Path) -> None:
     runner = CliRunner()
     out_file = tmp_path / "o.http"
-    res = runner.invoke(cli_app, ["generate", str(sample_spec_path), "--out", str(out_file), "--no-env"])
+    res = runner.invoke(
+        cli_app, ["generate", str(sample_spec_path), "--out", str(out_file), "--no-env"]
+    )
     assert res.exit_code == 0, res.output
     # env files should not exist
     assert not (tmp_path / "http-client.env.json").exists()
@@ -26,7 +28,8 @@ paths:
           description: ok
 """
 
-def test_info_no_servers_or_security(cli_app, tmp_path: Path):
+
+def test_info_no_servers_or_security(cli_app, tmp_path: Path) -> None:
     spec = tmp_path / "n.yaml"
     spec.write_text(esspec_no_servers)
     runner = CliRunner()
@@ -38,7 +41,7 @@ def test_info_no_servers_or_security(cli_app, tmp_path: Path):
     assert data.get("servers") == [] or isinstance(data.get("servers"), list)
 
 
-def test_paths_no_methods_flag(cli_app, sample_spec_path):
+def test_paths_no_methods_flag(cli_app, sample_spec_path) -> None:
     runner = CliRunner()
     res = runner.invoke(cli_app, ["paths", str(sample_spec_path), "--no-with-methods"])
     assert res.exit_code == 0
@@ -74,18 +77,22 @@ paths:
                     ok: true
 """
 
-def test_sample_with_examples(cli_app, tmp_path: Path):
+
+def test_sample_with_examples(cli_app, tmp_path: Path) -> None:
     spec = tmp_path / "e.yaml"
     spec.write_text(spec_with_examples)
 
     runner = CliRunner()
-    res = runner.invoke(cli_app, [
-        "sample",
-        str(spec),
-        "/e",
-        "--method",
-        "post",
-    ])
+    res = runner.invoke(
+        cli_app,
+        [
+            "sample",
+            str(spec),
+            "/e",
+            "--method",
+            "post",
+        ],
+    )
     assert res.exit_code == 0, res.output
     out = json.loads(res.output)
     assert out["request"]["POST"]["application/json"]["hello"] == "world"

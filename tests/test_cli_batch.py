@@ -1,8 +1,9 @@
-from typer.testing import CliRunner
 from pathlib import Path
 
+from typer.testing import CliRunner
 
-def test_batch_generates_multiple(cli_app, tmp_path: Path):
+
+def test_batch_generates_multiple(cli_app, tmp_path: Path) -> None:
     # Build two simple specs
     spec1 = tmp_path / "a.yaml"
     spec1.write_text(
@@ -19,7 +20,7 @@ paths:
       responses:
         '200':
           description: ok
-        
+
         """.strip()
     )
 
@@ -38,20 +39,23 @@ paths:
       responses:
         '201':
           description: created
-        
+
         """.strip()
     )
 
     runner = CliRunner()
-    res = runner.invoke(cli_app, [
-        "batch",
-        str(tmp_path),
-        "--pattern",
-        "*.yaml",
-        "--env-name",
-        "dev",
-        "--overwrite",
-    ])
+    res = runner.invoke(
+        cli_app,
+        [
+            "batch",
+            str(tmp_path),
+            "--pattern",
+            "*.yaml",
+            "--env-name",
+            "dev",
+            "--overwrite",
+        ],
+    )
     assert res.exit_code == 0, res.output
 
     # Output files should exist for both

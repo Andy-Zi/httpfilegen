@@ -34,7 +34,9 @@ def handle_params(
         for param in parameters:
             # Accept duck-typed parameter-like objects used in tests/resolved refs
             if not hasattr(param, "name") or not hasattr(param, "param_in"):
-                raise TypeError("Expected Parameter-like object, got {}".format(type(param)))
+                raise TypeError(
+                    "Expected Parameter-like object, got {}".format(type(param))
+                )
             loc = param.param_in
             loc_value = getattr(loc, "value", loc)
             if loc_value == "query":
@@ -212,11 +214,7 @@ def handle_cookie_params(path: str, param: Parameter) -> HttpVariable | None:
         desc = param.description.strip()
     else:
         desc = ""
-    return HttpVariable(
-        name=param.name,
-        value=str(value) or "",
-        description=desc
-    )
+    return HttpVariable(name=param.name, value=str(value) or "", description=desc)
 
 
 def handle_missing_path_parasm(path: str) -> tuple[str, list[HttpVariable]]:

@@ -1,8 +1,7 @@
 from http_file_generator.models.http_file.open_api_parser import OpenApiParser
-import json
 
 
-def test_multi_content_types_and_no_request_body(tmp_path):
+def test_multi_content_types_and_no_request_body(tmp_path) -> None:
     spec = tmp_path / "s.yaml"
     spec.write_text(
         """

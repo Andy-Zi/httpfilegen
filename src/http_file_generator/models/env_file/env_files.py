@@ -143,7 +143,7 @@ class OAuth2Auth(BaseModel):
         mode="before",
     )
     @classmethod
-    def validate_urls(cls, v):
+    def validate_urls(cls, v) -> str | None:
         return validate_url(v)
 
     @model_validator(mode="after")
@@ -283,7 +283,7 @@ class SSLClientCertAuth(BaseModel):
 
     @field_validator("cert", "key")
     @classmethod
-    def validate_file_exists(cls, v):
+    def validate_file_exists(cls, v) -> str:
         if not os.path.isfile(v):
             raise ValueError(f"Certificate file does not exist: {v}")
         return v

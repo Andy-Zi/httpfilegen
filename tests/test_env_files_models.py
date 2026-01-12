@@ -1,29 +1,25 @@
-import os
-import tempfile
 import pytest
 
 from http_file_generator.models.env_file.env_files import (
     OAuth2Auth,
-    PrivateOAuth2Auth,
     BasicAuth,
     DigestAuth,
     NTLMAuth,
     BearerAuth,
     AWSSignatureV4Auth,
     SSLClientCertAuth,
-    EnvSection,
     PrivateEnvSection,
     HttpClientPrivateEnv,
 )
 
 
-def test_basic_and_digest_auth_valid():
+def test_basic_and_digest_auth_valid() -> None:
     b = BasicAuth(**{"Username": "u", "Password": "p"})
     d = DigestAuth(**{"Username": "u", "Password": "p"})
     assert b.username == "u" and d.password == "p"
 
 
-def test_ntlm_requires_both_or_none():
+def test_ntlm_requires_both_or_none() -> None:
     with pytest.raises(ValueError):
         NTLMAuth(**{"Username": "x"})
     with pytest.raises(ValueError):
@@ -33,12 +29,12 @@ def test_ntlm_requires_both_or_none():
     assert nt.username == "u" and nt.password == "p"
 
 
-def test_bearer_auth_valid():
+def test_bearer_auth_valid() -> None:
     b = BearerAuth(**{"Token": "tok"})
     assert b.token == "tok"
 
 
-def test_aws_signature_v4_auth_valid():
+def test_aws_signature_v4_auth_valid() -> None:
     aws = AWSSignatureV4Auth(
         **{
             "Access Key Id": "AKIA...",
@@ -50,7 +46,7 @@ def test_aws_signature_v4_auth_valid():
     assert aws.region == "eu-west-1"
 
 
-def test_ssl_client_cert_auth_validates_files(tmp_path):
+def test_ssl_client_cert_auth_validates_files(tmp_path) -> None:
     cert = tmp_path / "c.crt"
     key = tmp_path / "k.key"
     cert.write_text("x")
@@ -59,10 +55,12 @@ def test_ssl_client_cert_auth_validates_files(tmp_path):
     assert ssl.cert.endswith("c.crt")
     # missing file should raise
     with pytest.raises(ValueError):
-        SSLClientCertAuth(**{"Cert": cert.as_posix(), "Key": (tmp_path / "no.key").as_posix()})
+        SSLClientCertAuth(
+            **{"Cert": cert.as_posix(), "Key": (tmp_path / "no.key").as_posix()}
+        )
 
 
-def test_oauth2_password_requires_username_and_password():
+def test_oauth2_password_requires_username_and_password() -> None:
     with pytest.raises(ValueError):
         OAuth2Auth(
             **{
@@ -74,7 +72,7 @@ def test_oauth2_password_requires_username_and_password():
         )
 
 
-def test_oauth2_client_credentials_requirements():
+def test_oauth2_client_credentials_requirements() -> None:
     with pytest.raises(ValueError):
         OAuth2Auth(
             **{
@@ -87,7 +85,7 @@ def test_oauth2_client_credentials_requirements():
         )
 
 
-def test_oauth2_pkce_validation():
+def test_oauth2_pkce_validation() -> None:
     with pytest.raises(ValueError):
         OAuth2Auth(
             **{
@@ -112,7 +110,7 @@ def test_oauth2_pkce_validation():
         )
 
 
-def test_oauth2_jwt_validation():
+def test_oauth2_jwt_validation() -> None:
     with pytest.raises(ValueError):
         OAuth2Auth(
             **{
@@ -137,7 +135,7 @@ def test_oauth2_jwt_validation():
         )
 
 
-def test_custom_request_parameters_validation():
+def test_custom_request_parameters_validation() -> None:
     with pytest.raises(ValueError):
         OAuth2Auth(
             **{
@@ -157,7 +155,9 @@ def test_custom_request_parameters_validation():
                 "Token URL": "https://id.example.com/token",
                 "Client ID": "id",
                 "Client Secret": "secret",
-                "Custom Request Parameters": {"foo": {"Value": "x", "Use": "Somewhere"}},
+                "Custom Request Parameters": {
+                    "foo": {"Value": "x", "Use": "Somewhere"}
+                },
             }
         )
     # Valid custom params
@@ -174,7 +174,7 @@ def test_custom_request_parameters_validation():
     assert ok.custom_request_parameters["foo"]["Value"] == "x"
 
 
-def test_private_env_section_variables_validation():
+def test_private_env_section_variables_validation() -> None:
     # invalid key pattern
     with pytest.raises(ValueError):
         PrivateEnvSection(**{"BAD-KEY": "x"})
@@ -186,10 +186,17 @@ def test_private_env_section_variables_validation():
     assert getattr(sec, "GOOD") == "x"
 
 
-def test_httpclientprivateenv_validate_extra():
+def test_httpclientprivateenv_validate_extra() -> None:
     # Extra environment key must be a dict representing a section
     with pytest.raises(ValueError):
         HttpClientPrivateEnv(**{"$shared": {}, "dev": "notadict"})
     # Valid nested section
-    model = HttpClientPrivateEnv(**{"$shared": {}, "dev": PrivateEnvSection(**{"X": "Y"}).model_dump(by_alias=True, exclude_none=True)})
+    model = HttpClientPrivateEnv(
+        **{
+            "$shared": {},
+            "dev": PrivateEnvSection(**{"X": "Y"}).model_dump(
+                by_alias=True, exclude_none=True
+            ),
+        }
+    )
     assert hasattr(model, "dev")
