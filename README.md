@@ -75,12 +75,64 @@ nix build
 nix profile install ./result
 ```
 
-The Home Manager module creates a config file at `~/.config/httpfilegen/config.toml` with your configured defaults, which the CLI will automatically use.
+The Home Manager module creates a config file at `~/.config/httpfilegen/config.toml` with your configured defaults (see Configuration section above).
 
 ## Usage
 
 ```bash
 httpfilegen --help
+```
+
+## Configuration
+
+httpfilegen supports configuration files for setting default CLI options. The config file is located at `~/.config/httpfilegen/config.toml`.
+
+### Config File Format
+
+Create or edit `~/.config/httpfilegen/config.toml`:
+
+```toml
+# Editor mode for optimized behavior
+# Options: default, kulala, pycharm, vscode
+mode = "default"
+
+# Default file generation mode
+# Options: single, multi
+filemode = "single"
+
+# Default base URL for generated files
+base_url = "https://api.example.com"
+
+# Default environment name
+env_name = "dev"
+
+# Default include options
+include_examples = false
+include_schema = false
+```
+
+### How It Works
+
+- CLI arguments always take precedence over config file defaults
+- Only non-provided CLI options will use config defaults
+- Config file is optional - httpfilegen works without it
+- Invalid config files are ignored with a warning
+
+### Example Usage
+
+With the above config, this command:
+```bash
+httpfilegen generate spec.yaml
+```
+
+Is equivalent to:
+```bash
+httpfilegen generate spec.yaml --mode default --filemode single --base-url https://api.example.com --env-name dev
+```
+
+But you can still override any option:
+```bash
+httpfilegen generate spec.yaml --filemode multi --include-examples
 ```
 
 ### Generate a .http file (and env files)
