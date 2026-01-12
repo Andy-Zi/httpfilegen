@@ -1,4 +1,5 @@
 import json
+import json
 import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
@@ -11,9 +12,27 @@ from .models.env_file.generator import generate_env_dicts
 from .models.settings.settings import Filemode, HttpSettings
 
 
+def _parse_spec_content(content: str) -> Any:
+    """Parse content as JSON first, then try YAML if JSON fails."""
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        try:
+            import yaml
+
+            return yaml.safe_load(content)
+        except ImportError:
+            raise ValueError(
+                "YAML support not available. Install PyYAML to parse YAML files."
+            )
+        except Exception:
+            raise ValueError("Content is neither valid JSON nor YAML")
+
+
 def load_data(file: Path | str) -> Any:
     if isinstance(file, Path):
-        data = json.loads(Path(file).read_text())
+        content = Path(file).read_text()
+        data = _parse_spec_content(content)
     else:
         parsed = urlparse(file)
         if parsed.scheme in ("http", "https") and parsed.netloc:
@@ -21,14 +40,16 @@ def load_data(file: Path | str) -> Any:
                 with urllib.request.urlopen(file) as resp:
                     charset = resp.headers.get_content_charset() or "utf-8"
                     content = resp.read().decode(charset)
-                data = json.loads(content)
+                data = _parse_spec_content(content)
             except Exception as e:
                 raise ValueError(
                     f"Failed to download or parse OpenAPI from URL '{file}': {e}"
                 )
         else:
             # Treat as a local file path string
-            data = json.loads(Path(file).read_text())
+            content = Path(file).read_text()
+            data = _parse_spec_content(content)
+
     try:
         return ResolvingParser(spec_string=json.dumps(data)).specification
     except ValidationError:

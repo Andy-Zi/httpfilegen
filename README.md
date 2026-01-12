@@ -9,6 +9,17 @@ A CLI tool to generate .http files and Kulala-compatible environment files from 
 - Inspect specs: summary, paths, and request/response samples
 - Batch process directories of spec files
 
+## Tool Compatibility
+
+Generated `.http` files and environment files work with:
+
+- ✅ **Kulala (Neovim)**: Full support including environment files and BASE_URL management
+- ✅ **PyCharm/IntelliJ IDEA**: Full support with JetBrains HTTP Client
+- ✅ **httpyac (VS Code)**: Full support - use the httpyac extension for complete environment file support
+- ⚠️ **VS Code REST Client**: Limited support - environment variables need manual setup in `.vscode/settings.json`
+
+**Note**: BASE_URL is now managed per-environment in the `http-client.env.json` files instead of shared blocks in the HTTP files.
+
 ## Installation
 
 Requires Python 3.13+

@@ -50,4 +50,4 @@ paths:
     # Check BASE_URL values
     assert '"BASE_URL": "https://aaa.example.com"' in env_content
     assert '"BASE_URL": "https://zzz.example.com"' in env_content
-    assert '"BASE_URL": "https://mmm.example.com"' in env_content
+    assert '"BASE_URL": "https://mmm.example.com/"' in env_content

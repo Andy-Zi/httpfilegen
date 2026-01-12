@@ -63,7 +63,7 @@ def test_generate_single_mode_with_base_url(
     assert public_env.exists()
     env_data = public_env.read_text()
     # The custom base URL should create an additional environment
-    assert '"BASE_URL": "https://custom.example.com"' in env_data
+    assert '"BASE_URL": "https://custom.example.com/"' in env_data
 
 
 def test_batch_multi_mode(cli_app, tmp_path: Path) -> None:

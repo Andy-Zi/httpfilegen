@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import Any, NoReturn, Union
 
 import typer
 
@@ -23,13 +23,13 @@ def _json_print(data: Any) -> None:
     typer.echo(json.dumps(data, indent=2, ensure_ascii=False, default=str))
 
 
-def _is_url(s: str | Path) -> bool:
+def _is_url(s):
     if isinstance(s, Path):
         return False
     return s.startswith("http://") or s.startswith("https://")
 
 
-def _validate_spec_source(spec: str | Path) -> str | Path:
+def _validate_spec_source(spec):
     if _is_url(spec):
         return spec
     p = spec if isinstance(spec, Path) else Path(spec)
@@ -44,7 +44,7 @@ def _ensure_write_target(path: Path, overwrite: bool) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
 
 
-def _method_upper_list(methods: list[str] | None) -> list[str] | None:
+def _method_upper_list(methods: Union[list[str], None]) -> Union[list[str], None]:
     if methods is None:
         return None
     result: list[str] = []
@@ -56,7 +56,7 @@ def _method_upper_list(methods: list[str] | None) -> list[str] | None:
     return result
 
 
-def _parse_filemode(value: str | None) -> Filemode:
+def _parse_filemode(value: Union[str, None]) -> Filemode:
     if value is None:
         return Filemode.SINGLE
     v = value.strip().lower()
@@ -69,22 +69,20 @@ def _parse_filemode(value: str | None) -> Filemode:
 
 @app.command("generate")
 def generate(
-    spec: str | Path = typer.Argument(
-        ..., help="Path or URL to the OpenAPI spec (yaml/json)."
-    ),
-    out: Path | None = typer.Option(
+    spec=typer.Argument(..., help="Path or URL to the OpenAPI spec (yaml/json)."),
+    out=typer.Option(
         None,
         "--out",
         "-o",
         help="Output .http file path. Defaults to <spec>.http next to the spec.",
     ),
-    filemode: str | None = typer.Option(
+    filemode=typer.Option(
         None,
         "--filemode",
         "-f",
         help="File generation mode: SINGLE (one .http) or MULTI (one per path).",
     ),
-    base_url: str | None = typer.Option(
+    base_url=typer.Option(
         None,
         "--base-url",
         help="Optional base URL to include in generated .http files.",
@@ -110,10 +108,11 @@ def generate(
     env_name: str = typer.Option(
         "dev", "--env-name", help="Environment section name for env files."
     ),
-    env_dir: Path | None = typer.Option(
+    env_dir=typer.Option(
         None,
         "--env-dir",
-        help="Directory where env files will be written. Defaults to the .http file directory.",
+        "-d",
+        help="Directory where env files will be written (defaults to .http file directory).",
     ),
     public_env_filename: str = typer.Option(
         "http-client.env.json", "--public-env-filename", help="Public env filename."
@@ -131,7 +130,7 @@ def generate(
     spec = _validate_spec_source(spec)
     # Derive output path (file or directory depending on filemode)
     if out is not None:
-        out_path = out
+        out_path = Path(out)
     elif _is_url(spec):
         # derive name from URL path segment
         name = Path(str(spec).rstrip("/").split("/")[-1]).stem or "openapi"
@@ -197,13 +196,25 @@ def generate(
             f"Env files generated: {public_env}, {private_env}", fg=typer.colors.GREEN
         )
 
+    # Inform about tool compatibility
+    typer.secho("\n📋 Tool Compatibility:", fg=typer.colors.BLUE, bold=True)
+    typer.echo("✅ Kulala (Neovim): Full support including environment files")
+    typer.echo("✅ PyCharm/IntelliJ: Full support with JetBrains HTTP Client")
+    typer.echo(
+        "✅ httpyac (VS Code): Full support - use httpyac extension, not REST Client"
+    )
+    typer.echo(
+        "⚠️  VS Code REST Client: Limited support - environment variables need manual setup"
+    )
+    typer.echo("\n💡 BASE_URL is now managed per-environment in the env files!")
+
 
 @app.command("env")
 def gen_env(
     spec: str = typer.Argument(
         ..., help="Path or URL to the OpenAPI spec (yaml/json)."
     ),
-    out_dir: Path | None = typer.Option(
+    out_dir: Union[Path, None] = typer.Option(
         None,
         "--out-dir",
         "-d",
@@ -309,7 +320,7 @@ def list_paths(
     spec: str = typer.Argument(
         ..., help="Path or URL to the OpenAPI spec (yaml/json)."
     ),
-    method: list[str] | None = typer.Option(
+    method: Union[list[str], None] = typer.Option(
         None,
         "--method",
         "-m",
@@ -347,7 +358,7 @@ def sample(
         ..., help="Path or URL to the OpenAPI spec (yaml/json)."
     ),
     path: str = typer.Argument(..., help="The API path to inspect, e.g. /users/{id}."),
-    method: str | None = typer.Option(
+    method: Union[str, None] = typer.Option(
         None, "--method", "-m", help="HTTP method to show. Defaults to all."
     ),
     request: bool = typer.Option(
@@ -356,10 +367,10 @@ def sample(
     response: bool = typer.Option(
         True, "--response/--no-response", help="Include response body samples."
     ),
-    status: str | None = typer.Option(
+    status: Union[str, None] = typer.Option(
         None, "--status", help="Filter a specific response HTTP status."
     ),
-    content_type: str | None = typer.Option(
+    content_type: Union[str, None] = typer.Option(
         None,
         "--content-type",
         help="Filter a specific content type.",
@@ -435,13 +446,13 @@ def batch(
         "-p",
         help="Glob(s) for spec files, comma-separated.",
     ),
-    filemode: str | None = typer.Option(
+    filemode: Union[str, None] = typer.Option(
         None,
         "--filemode",
         "-f",
         help="File generation mode: SINGLE (one .http) or MULTI (one per path).",
     ),
-    base_url: str | None = typer.Option(
+    base_url: Union[str, None] = typer.Option(
         None,
         "--base-url",
         help="Optional base URL to include in generated .http files.",

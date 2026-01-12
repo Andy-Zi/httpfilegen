@@ -30,3 +30,15 @@ if __name__ == "__main__":
     private_env_file = output_file.parent / "http-client.private.env.json"
     gen.to_env_files(public_env_file, private_env_file, env_name="dev")
     print(f"Env files generated: {public_env_file}, {private_env_file}")
+
+    print(f"\n📋 Tool Compatibility:")
+    print(f"✅ Kulala (Neovim): Full support including environment files")
+    print(f"✅ PyCharm/IntelliJ: Full support with JetBrains HTTP Client")
+    print(
+        f"✅ httpyac (VS Code): Full support - use httpyac extension, not REST Client"
+    )
+    print(
+        f"⚠️  VS Code REST Client: Limited support - environment variables need manual setup"
+    )
+
+    print(f"\n💡 BASE_URL is now managed per-environment in the env files!")

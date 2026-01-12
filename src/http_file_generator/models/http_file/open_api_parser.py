@@ -1,4 +1,7 @@
-from typing import Any
+import json
+from pathlib import Path
+from typing import Any, Union
+
 from openapi_pydantic.v3.parser import OpenAPIv3
 from openapi_pydantic import (
     Server,
@@ -13,6 +16,97 @@ from faker.providers import BaseProvider
 from ..enums import METHOD
 
 
+def _parse_spec_content(content: str) -> Any:
+    """Parse content as JSON first, then try YAML if JSON fails."""
+    import json
+
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        try:
+            import yaml
+
+            return yaml.safe_load(content)
+        except ImportError:
+            raise ValueError(
+                "YAML support not available. Install PyYAML to parse YAML files."
+            )
+        except Exception:
+            raise ValueError("Content is neither valid JSON nor YAML")
+
+
+def _load_spec_data(file: Path | str) -> Any:
+    """Load and parse OpenAPI spec from file or URL."""
+    import urllib.request
+    from urllib.parse import urlparse
+    from prance import ResolvingParser, ValidationError
+
+    if isinstance(file, Path):
+        content = Path(file).read_text()
+        data = _parse_spec_content(content)
+    else:
+        parsed = urlparse(file)
+        if parsed.scheme in ("http", "https") and parsed.netloc:
+            try:
+                with urllib.request.urlopen(file) as resp:
+                    charset = resp.headers.get_content_charset() or "utf-8"
+                    content = resp.read().decode(charset)
+                data = _parse_spec_content(content)
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to download or parse OpenAPI from URL '{file}': {e}"
+                )
+        else:
+            # Treat as a local file path string
+            content = Path(file).read_text()
+            data = _parse_spec_content(content)
+
+    try:
+        return ResolvingParser(spec_string=json.dumps(data)).specification
+    except ValidationError:
+        major, minor, patch = data.get("openapi").split(".")
+        if int(major) == 3 and (int(minor) > 0 or int(patch) > 0):
+            data["openapi"] = "3.1.0"
+            return ResolvingParser(spec_string=json.dumps(data)).specification
+
+
+def _load_spec_data(file: Path | str) -> Any:
+    """Load and parse OpenAPI spec from file or URL."""
+    import urllib.request
+    from urllib.parse import urlparse
+
+    if isinstance(file, Path):
+        content = Path(file).read_text()
+        data = _parse_spec_content(content)
+    else:
+        parsed = urlparse(file)
+        if parsed.scheme in ("http", "https") and parsed.netloc:
+            try:
+                with urllib.request.urlopen(file) as resp:
+                    charset = resp.headers.get_content_charset() or "utf-8"
+                    content = resp.read().decode(charset)
+                data = _parse_spec_content(content)
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to download or parse OpenAPI from URL '{file}': {e}"
+                )
+        else:
+            # Treat as a local file path string
+            content = Path(file).read_text()
+            data = _parse_spec_content(content)
+
+    from openapi_pydantic.v3.parser import parse_obj
+    from prance import ResolvingParser, ValidationError
+
+    try:
+        return ResolvingParser(spec_string=json.dumps(data)).specification
+    except ValidationError:
+        major, minor, patch = data.get("openapi").split(".")
+        if int(major) == 3 and (int(minor) > 0 or int(patch) > 0):
+            data["openapi"] = "3.1.0"
+            return ResolvingParser(spec_string=json.dumps(data)).specification
+
+
 class Duration_provider(BaseProvider):
     def duration(self):
         return self.generator.time_delta()
@@ -21,8 +115,14 @@ class Duration_provider(BaseProvider):
 class OpenApiParser(BaseModel):
     model: OpenAPIv3
 
-    def __init__(self, data: dict) -> None:
-        model = parse_obj(data)
+    def __init__(self, data: Union[dict, str, Path]) -> None:
+        if isinstance(data, (str, Path)):
+            # Load data from file/URL
+            parsed_data = _load_spec_data(data)
+        else:
+            # Data is already parsed
+            parsed_data = data
+        model = parse_obj(parsed_data)
         super().__init__(model=model)
 
     def get_paths(self) -> list[str]:
