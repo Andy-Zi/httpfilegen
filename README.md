@@ -24,6 +24,8 @@ Generated `.http` files and environment files work with:
 
 Requires Python 3.13+
 
+### Standard Installation
+
 ```bash
 # From the project root (pick one)
 pip install -e .
@@ -32,6 +34,48 @@ uv pip install -e .
 ```
 
 This will install the `httpfilegen` command.
+
+### NixOS/Home Manager Installation
+
+If you're using NixOS with Home Manager, you can use the provided flake:
+
+```nix
+# In your home.nix
+{
+  imports = [
+    # Import the httpfilegen Home Manager module
+    inputs.httpfilegen.homeManagerModules.httpfilegen
+  ];
+
+  programs.httpfilegen = {
+    enable = true;
+
+    # Configure default CLI options (optional)
+    defaults = {
+      mode = "default";  # or "kulala", "pycharm", "vscode"
+      filemode = "single";
+      baseUrl = "https://api.example.com";
+      envName = "dev";
+      includeExamples = true;
+      includeSchema = false;
+    };
+  };
+}
+```
+
+Then enter the development shell:
+```bash
+cd /path/to/httpfilegen
+nix develop
+```
+
+Or install the package system-wide:
+```bash
+nix build
+nix profile install ./result
+```
+
+The Home Manager module creates a config file at `~/.config/httpfilegen/config.toml` with your configured defaults, which the CLI will automatically use.
 
 ## Usage
 

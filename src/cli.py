@@ -1,6 +1,13 @@
 import json
+import os
 from pathlib import Path
 from typing import Any, NoReturn, Union
+from pydantic_core import Url
+
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
 
 import typer
 
@@ -42,6 +49,27 @@ def _ensure_write_target(path: Path, overwrite: bool) -> None:
     if path.exists() and not overwrite:
         _abort(f"Refusing to overwrite existing file without --overwrite: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
+
+
+def _load_config() -> dict[str, Any]:
+    """Load configuration from ~/.config/httpfilegen/config.toml if it exists."""
+    config_path = Path.home() / ".config" / "httpfilegen" / "config.toml"
+    if not config_path.exists():
+        return {}
+
+    try:
+        with open(config_path, "rb") as f:
+            return tomllib.load(f)
+    except Exception:
+        # If config file is malformed, ignore it
+        return {}
+
+
+def _get_config_value(config: dict[str, Any], key: str, default=None):
+    """Get a value from config, with optional defaults section."""
+    if "defaults" in config and key in config["defaults"]:
+        return config["defaults"][key]
+    return config.get(key, default)
 
 
 def _method_upper_list(methods: Union[list[str], None]) -> Union[list[str], None]:
@@ -87,6 +115,11 @@ def generate(
         "--base-url",
         help="Optional base URL to include in generated .http files.",
     ),
+    mode: str = typer.Option(
+        "default",
+        "--mode",
+        help="Editor mode: default (cross-compatible), kulala (Neovim), pycharm (JetBrains), vscode (httpyac).",
+    ),
     include_examples: bool = typer.Option(
         False,
         "--include-examples/--no-include-examples",
@@ -127,6 +160,35 @@ def generate(
     Generate a .http file from an OpenAPI spec.
     Optionally also generate http-client env files.
     """
+    # Load configuration and apply defaults
+    config = _load_config()
+
+    # Apply defaults if not explicitly provided
+    if mode == "default":  # Only override if using default
+        config_mode = _get_config_value(config, "mode")
+        if config_mode:
+            mode = str(config_mode)
+    if filemode is None:
+        config_filemode = _get_config_value(config, "filemode")
+        if config_filemode:
+            filemode = str(config_filemode)
+    if base_url is None:
+        config_base_url = _get_config_value(config, "base_url")
+        if config_base_url:
+            base_url = str(config_base_url)
+    if env_name == "dev":  # Only override if using default
+        config_env_name = _get_config_value(config, "env_name")
+        if config_env_name:
+            env_name = str(config_env_name)
+    if not include_examples:  # Only override if False (default)
+        config_examples = _get_config_value(config, "include_examples")
+        if config_examples is True:
+            include_examples = True
+    if not include_schema:  # Only override if False (default)
+        config_schema = _get_config_value(config, "include_schema")
+        if config_schema is True:
+            include_schema = True
+
     spec = _validate_spec_source(spec)
     # Derive output path (file or directory depending on filemode)
     if out is not None:
@@ -142,7 +204,7 @@ def generate(
         fm = _parse_filemode(filemode)
         settings = HttpSettings(
             filemode=fm,
-            baseURL=base_url,
+            baseURL=Url(base_url) if base_url else None,
             include_examples=include_examples,
             include_schema=include_schema,
         )
