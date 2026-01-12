@@ -53,7 +53,7 @@ httpfilegen generate path/to/openapi.yaml \
 
 Options of interest:
 - `--filemode, -f`: Generation mode. `SINGLE` (default) writes one .http file. `MULTI` writes one .http per API path and mirrors the path structure as directories.
-- `--base-url`: Optional base URL to include in the generated .http file(s). This is added to the Shared section alongside any servers defined in the spec.
+- `--base-url`: Optional base URL to include in environment files. This creates an additional environment alongside any servers defined in the spec.
 - `--include-examples/--no-include-examples`: Include commented response examples next to each request.
 - `--include-schema/--no-include-schema`: Include commented request body examples (based on provided examples or schema fallback) next to each request.
 
@@ -151,7 +151,8 @@ spec = Path("path/to/openapi.yaml")
 out = Path("path/to/output.http")
 
 # Single file with optional base URL and response examples
-settings = HttpSettings(filemode=Filemode.SINGLE, baseURL="https://api.example.com", include_examples=True, include_schema=True)
+from pydantic_core import Url
+settings = HttpSettings(filemode=Filemode.SINGLE, baseURL=Url("https://api.example.com"), include_examples=True, include_schema=True)
 http_file_generator = HtttpFileGenerator(spec, settings=settings)
 http_file_generator.to_http_file(out)
 
@@ -169,7 +170,7 @@ http_file_generator.to_env_files(public_env, private_env, env_name="dev")
 
 - Generated env files follow the schemas used by Kulala. Private env contains only secrets and extra variables; public env contains non-sensitive auth config.
 - OpenAPI parsing relies on prance and openapi-pydantic; external $refs are resolved automatically.
-- When using `--base-url` or `HttpSettings.baseURL`, the URL is included in the Shared section of every generated .http file. If the spec also defines servers, those will be listed as well.
+- When using `--base-url` or `HttpSettings.baseURL`, the URL creates an additional environment in the generated env files. If the spec also defines servers, each server creates its own environment.
 - In `MULTI` mode, env files (if enabled) default to being written next to the generated tree unless `--env-dir` is specified.
 
 ## Development

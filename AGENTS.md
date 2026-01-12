@@ -50,7 +50,8 @@ This file contains development guidelines and commands for coding agents working
 ### Type Hints
 - **Use type hints extensively**: All function parameters and return values should be typed
 - **Common types**: Use `typing.Any`, `typing.NoReturn`, `pathlib.Path`, etc.
-- **Optional types**: Use `X | None` instead of `Optional[X]` (Python 3.10+ union syntax)
+- **Optional types**: Use `Union[X, None]` instead of `Optional[X]` (for Typer CLI compatibility)
+- **Union types**: Use `Union[X, Y]` instead of `X | Y` (Typer doesn't support modern union syntax)
 - **Generic types**: Use `list[str]` instead of `List[str]`
 
 ### Naming Conventions
@@ -174,10 +175,10 @@ def safe_write_file(path: Path, content: str, overwrite: bool = False) -> None:
 
 ### Type Hints Example
 ```python
-from typing import Any, NoReturn
+from typing import Any, NoReturn, Union
 from pathlib import Path
 
-def process_spec(spec: str | Path, settings: dict[str, Any]) -> dict[str, Any]:
+def process_spec(spec: Union[str, Path], settings: dict[str, Any]) -> dict[str, Any]:
     """Process an OpenAPI spec and return results."""
     # Implementation
     pass
