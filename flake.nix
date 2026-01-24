@@ -17,28 +17,32 @@
 
         # Python 3.13 environment
         python = pkgs.python313;
+        pyPkgs = python.pkgs;
 
-        # jsf package (not in nixpkgs)
-        jsf = python.pkgs.buildPythonPackage {
+        jsf = pyPkgs.buildPythonPackage rec {
           pname = "jsf";
-          version = "0.11.2";
+          version = "0.11.2"; # adjust if needed
+
           src = pkgs.fetchPypi {
-            pname = "jsf";
-            version = "0.11.2";
-            sha256 = "07055b363281d38ce871a9256a00587d8472802c5108721a7fe5884465104b5d";
+            inherit pname version;
+            hash = "sha256-BwVbNjKB04zocaklagBYfYRygCxRCHIaf+WIRGUQS10=";
           };
+
           pyproject = true;
-          build-system = with python.pkgs; [ setuptools wheel ];
-          dependencies = with python.pkgs; [
+          build-system = with pyPkgs; [ setuptools wheel ];
+
+          # Fix runtime deps check failure
+          dependencies = with pyPkgs; [
             faker
             jsonschema
             pydantic
-            requests
+            pydantic-settings
             rstr
             smart-open
+            typer
             typing-extensions
           ];
-          pythonImportsCheck = [ "jsf" ];
+
           doCheck = false;
         };
 
@@ -50,7 +54,8 @@
           # Add any other dev tools
         ];
 
-      in {
+      in
+      {
         # Home Manager module
         homeManagerModules.httpfilegen = { config, lib, ... }: {
           options.programs.httpfilegen = {
@@ -105,18 +110,17 @@
           config = lib.mkIf config.programs.httpfilegen.enable {
             home.packages = [ config.programs.httpfilegen.package ];
 
-            # Create config file
-            xdg.configFile."httpfilegen/config.toml".text = lib.generators.toTOML {
-              defaults = {
-                mode = config.programs.httpfilegen.defaults.mode;
-                filemode = config.programs.httpfilegen.defaults.filemode;
-                env_name = config.programs.httpfilegen.defaults.envName;
-                include_examples = config.programs.httpfilegen.defaults.includeExamples;
-                include_schema = config.programs.httpfilegen.defaults.includeSchema;
-              } // (lib.optionalAttrs (config.programs.httpfilegen.defaults.baseUrl != null) {
-                base_url = config.programs.httpfilegen.defaults.baseUrl;
-              });
-            };
+            xdg.configFile."httpfilegen/config.toml".source =
+              (pkgs.formats.toml { }).generate "httpfilegen-config.toml"
+                ({
+                  mode = config.programs.httpfilegen.defaults.mode;
+                  filemode = config.programs.httpfilegen.defaults.filemode;
+                  env_name = config.programs.httpfilegen.defaults.envName;
+                  include_examples = config.programs.httpfilegen.defaults.includeExamples;
+                  include_schema = config.programs.httpfilegen.defaults.includeSchema;
+                } // (lib.optionalAttrs (config.programs.httpfilegen.defaults.baseUrl != null) {
+                  base_url = config.programs.httpfilegen.defaults.baseUrl;
+                }));
           };
         };
 
@@ -138,29 +142,33 @@
         };
 
         # Package build using setuptools
-        packages.default = python.pkgs.buildPythonApplication {
+        packages.default = pyPkgs.buildPythonApplication {
           pname = "httpfilegen";
           version = "0.1.0";
           src = ./.;
 
           pyproject = true;
-          build-system = with python.pkgs; [ setuptools wheel ];
+          build-system = with pyPkgs; [ setuptools wheel ];
 
-          nativeBuildInputs = [ python.pkgs.pythonRelaxDepsHook ];
-          pythonRelaxDeps = [ "pydantic-settings" "typer" ];
+          nativeBuildInputs = with pyPkgs; [
+            pythonRelaxDepsHook
+          ];
 
-          dependencies = [
+          pythonRelaxDeps = [
+            "pydantic-settings"
+            "typer"
+          ];
+          dependencies = with pyPkgs; [
             jsf
-          ] ++ (with python.pkgs; [
             openapi-pydantic
             openapi-spec-validator
             prance
             pydantic
             pydantic-settings
             typer
-          ]);
+          ];
 
-          nativeCheckInputs = with python.pkgs; [
+          nativeCheckInputs = with pyPkgs; [
             pytest
             pytest-cov
           ];
@@ -178,3 +186,4 @@
         };
       });
 }
+

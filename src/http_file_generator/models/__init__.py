@@ -4,7 +4,7 @@ from .http_file.request import HttpRequest
 from .http_file.scripts import HttpScript
 from .http_file.var import HttpVariable, BaseURL
 from .http_file.open_api_parser import OpenApiParser
-from .settings.settings import HttpSettings, Filemode
+from .settings.settings import HttpSettings, Filemode, EditorMode
 from .enums import METHOD
 
 __all__ = [
@@ -17,5 +17,6 @@ __all__ = [
     "OpenApiParser",
     "HttpSettings",
     "Filemode",
+    "EditorMode",
     "METHOD",
 ]

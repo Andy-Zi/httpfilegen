@@ -11,7 +11,6 @@ from openapi_pydantic import (
 )
 from pydantic import BaseModel
 from jsf import JSF
-from faker.providers import BaseProvider
 
 from ..enums import METHOD
 
@@ -39,7 +38,6 @@ def _load_spec_data(file: Path | str) -> Any:
     """Load and parse OpenAPI spec from file or URL."""
     import urllib.request
     from urllib.parse import urlparse
-    from prance import ResolvingParser, ValidationError
 
     if isinstance(file, Path):
         content = Path(file).read_text()
@@ -61,41 +59,6 @@ def _load_spec_data(file: Path | str) -> Any:
             content = Path(file).read_text()
             data = _parse_spec_content(content)
 
-    try:
-        return ResolvingParser(spec_string=json.dumps(data)).specification
-    except ValidationError:
-        major, minor, patch = data.get("openapi").split(".")
-        if int(major) == 3 and (int(minor) > 0 or int(patch) > 0):
-            data["openapi"] = "3.1.0"
-            return ResolvingParser(spec_string=json.dumps(data)).specification
-
-
-def _load_spec_data(file: Path | str) -> Any:
-    """Load and parse OpenAPI spec from file or URL."""
-    import urllib.request
-    from urllib.parse import urlparse
-
-    if isinstance(file, Path):
-        content = Path(file).read_text()
-        data = _parse_spec_content(content)
-    else:
-        parsed = urlparse(file)
-        if parsed.scheme in ("http", "https") and parsed.netloc:
-            try:
-                with urllib.request.urlopen(file) as resp:
-                    charset = resp.headers.get_content_charset() or "utf-8"
-                    content = resp.read().decode(charset)
-                data = _parse_spec_content(content)
-            except Exception as e:
-                raise ValueError(
-                    f"Failed to download or parse OpenAPI from URL '{file}': {e}"
-                )
-        else:
-            # Treat as a local file path string
-            content = Path(file).read_text()
-            data = _parse_spec_content(content)
-
-    from openapi_pydantic.v3.parser import parse_obj
     from prance import ResolvingParser, ValidationError
 
     try:
@@ -105,11 +68,6 @@ def _load_spec_data(file: Path | str) -> Any:
         if int(major) == 3 and (int(minor) > 0 or int(patch) > 0):
             data["openapi"] = "3.1.0"
             return ResolvingParser(spec_string=json.dumps(data)).specification
-
-
-class Duration_provider(BaseProvider):
-    def duration(self):
-        return self.generator.time_delta()
 
 
 class OpenApiParser(BaseModel):

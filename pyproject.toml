@@ -5,14 +5,13 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "jsf>=0.11.2",
-    "openapi-pydantic>=0.5.1",
-    "openapi-spec-validator>=0.7.2",
-    "prance>=25.4.8.0",
-    "pydantic>=2.12.3",
-    "pydantic-settings>=2.11.0",
-    "pytest>=8.4.2",
-    "typer>=0.20.0",
+    "jsf>=0.11.2,<1.0",
+    "openapi-pydantic>=0.5.1,<1.0",
+    "openapi-spec-validator>=0.7.2,<1.0",
+    "prance>=25.4.8.0,<26.0",
+    "pydantic>=2.12.3,<3.0",
+    "pydantic-settings>=2.11.0,<3.0",
+    "typer>=0.20.0,<1.0",
 ]
 
 [project.scripts]
@@ -31,10 +30,14 @@ where = ["src"]
 exclude = ["tests", "tests.*", "*.tests", "*.tests.*"]
 
 [project.optional-dependencies]
+yaml = [
+    "pyyaml>=6.0,<7.0",
+]
 test = [
-    "pytest>=8.0",
-    "typer>=0.20.0",
-    "pytest-cov>=4.1",
+    "pytest>=8.0,<9.0",
+    "typer>=0.20.0,<1.0",
+    "pytest-cov>=4.1,<6.0",
+    "pyyaml>=6.0,<7.0",
 ]
 
 [tool.pytest.ini_options]
@@ -56,3 +59,8 @@ omit = [
 [tool.coverage.report]
 show_missing = true
 skip_empty = true
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.13",
+]

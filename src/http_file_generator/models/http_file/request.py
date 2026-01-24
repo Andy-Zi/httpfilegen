@@ -41,14 +41,14 @@ SEPARATOR = "#" * 53 + "\n"
 class HttpRequest(BaseModel):
     method: METHOD = Field(..., description="HTTP method, e.g., GET, POST")
     path: str = Field(..., description="Request URL")
-    headers: dict[str, str] | None = Field(
+    headers: dict[str, str] = Field(
         default_factory=dict, description="Headers as key-value pairs"
     )
     body: dict | None = Field(None, description="Request body as JSON dict")
     summary: str | None = Field(None, description="Short summary of the request")
     description: str | None = Field(None, description="Detailed description")
-    params: list[HttpVariable] | None = Field(
-        default_factory=dict,
+    params: list[HttpVariable] = Field(
+        default_factory=list,
         description="Parameters for the request as key-value pairs",
     )
     pre_script: HttpScript | None = Field(
@@ -112,6 +112,11 @@ class HttpRequest(BaseModel):
         lines = ""
         lines += self._frontmatter()
         lines += self._params()
+
+        # Add pre-request script if present (IntelliJ format)
+        if self.pre_script:
+            lines += f"< {{% {self.pre_script.script} %}}\n\n"
+
         lines += f"{self.method} {base_url}{self.path}\n"
         if self.headers:
             for k, v in self.headers.items():
@@ -119,6 +124,11 @@ class HttpRequest(BaseModel):
         lines += "\n"
         if self.body:
             lines += json.dumps(self.body, indent=4)
+
+        # Add post-request script (response handler) if present (IntelliJ format)
+        if self.post_script:
+            lines += f"\n\n> {{% {self.post_script.script} %}}"
+
         # Append commented request body examples if enabled
         if include_schema and self.request_examples:
             lines += "\n### Request Examples\n"
@@ -141,9 +151,10 @@ class HttpRequest(BaseModel):
         """
         Create an HttpRequest object from an OpenAPI operation object.
         """
-        # Handle request body
+        # Handle request body - safely extract first content type
         bodies = handle_body(path, operation.requestBody)
-        (body, headers) = list(bodies.values())[0] if bodies else (None, None)
+        body_values = list(bodies.values()) if bodies else []
+        (body, headers) = body_values[0] if body_values else (None, None)
 
         # Handle parameters
         path, params = handle_params(path, operation.parameters)
@@ -163,6 +174,9 @@ class HttpRequest(BaseModel):
         # Collect response examples for this operation (all statuses/content types)
         response_examples = cls._collect_response_examples(operation)
 
+        # Extract pre/post request scripts from OpenAPI extensions
+        pre_script, post_script = cls._extract_scripts(operation)
+
         return cls(
             body=body,
             description=operation.description,
@@ -173,16 +187,48 @@ class HttpRequest(BaseModel):
             summary=operation.summary,
             request_examples=request_examples or None,
             response_examples=response_examples or None,
+            pre_script=pre_script,
+            post_script=post_script,
         )
 
     @staticmethod
     def _generate_sample_from_schema(schema: dict) -> Any:
+        """Generate a sample value from a JSON schema. Returns None on failure."""
         try:
             faker = JSF(schema=schema)
             sample = faker.generate()
             return sample
-        except Exception:
+        except (ValueError, TypeError, KeyError, AttributeError):
+            # Schema may be malformed or unsupported by JSF
             return None
+
+    @classmethod
+    def _extract_scripts(
+        cls, operation: Operation
+    ) -> tuple[HttpScript | None, HttpScript | None]:
+        """Extract pre/post request scripts from OpenAPI x- extensions.
+
+        Looks for:
+        - x-pre-request-script: Script to run before the request
+        - x-post-request-script: Script to run after the request (response handler)
+        """
+        pre_script = None
+        post_script = None
+
+        # Try to access extensions via model_extra (Pydantic) or direct attribute
+        extensions = getattr(operation, "model_extra", {}) or {}
+
+        # Check for pre-request script
+        pre_script_value = extensions.get("x-pre-request-script")
+        if pre_script_value and isinstance(pre_script_value, str):
+            pre_script = HttpScript(script=pre_script_value)
+
+        # Check for post-request script (response handler)
+        post_script_value = extensions.get("x-post-request-script")
+        if post_script_value and isinstance(post_script_value, str):
+            post_script = HttpScript(script=post_script_value)
+
+        return pre_script, post_script
 
     @classmethod
     def _collect_response_examples(cls, operation: Operation) -> list[dict[str, Any]]:

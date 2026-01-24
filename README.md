@@ -152,6 +152,7 @@ Options of interest:
 - `--base-url`: Optional base URL to include in environment files. This creates an additional environment alongside any servers defined in the spec.
 - `--include-examples/--no-include-examples`: Include commented response examples next to each request.
 - `--include-schema/--no-include-schema`: Include commented request body examples (based on provided examples or schema fallback) next to each request.
+- `--dry-run`: Preview output without writing any files. Shows what would be generated.
 
 Examples:
 
@@ -220,6 +221,32 @@ httpfilegen sample path/to/openapi.yaml \
   --status 200
 ```
 
+### Validate a spec
+
+Validate an OpenAPI spec without generating any files:
+
+```bash
+httpfilegen validate path/to/openapi.yaml
+```
+
+For CI/CD pipelines, use JSON output:
+
+```bash
+httpfilegen validate path/to/openapi.yaml --json
+```
+
+Returns exit code 0 on success, 1 on failure.
+
+### Preview output (dry run)
+
+Preview what would be generated without writing any files:
+
+```bash
+httpfilegen generate path/to/openapi.yaml --dry-run
+```
+
+This shows the first 100 lines of the generated .http file and lists any env files that would be created.
+
 ### Batch processing
 
 ```bash
@@ -269,9 +296,163 @@ http_file_generator.to_env_files(public_env, private_env, env_name="dev")
 - When using `--base-url` or `HttpSettings.baseURL`, the URL creates an additional environment in the generated env files. If the spec also defines servers, each server creates its own environment.
 - In `MULTI` mode, env files (if enabled) default to being written next to the generated tree unless `--env-dir` is specified.
 
+## Generated Output Examples
+
+### Sample .http File
+
+```http
+# JetBrains HTTP Client file
+# https://www.jetbrains.com/help/idea/http-client-in-product-code-editor.html
+# Supports: {{variable}}, # @name, pre/post scripts, http-client.env.json
+
+@BASE_URL=https://api.example.com
+
+### Get all users
+# @name getUsers
+GET {{BASE_URL}}/users
+Accept: application/json
+
+### Create a user
+# @name createUser
+< {% request.variables.set('timestamp', Date.now()); %}
+POST {{BASE_URL}}/users
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "email": "john@example.com"
+}
+
+> {% client.assert(response.status === 201); %}
+
+### Get user by ID
+# @name getUserById
+GET {{BASE_URL}}/users/{{userId}}
+Accept: application/json
+Authorization: Bearer {{auth_token}}
+```
+
+### Sample http-client.env.json
+
+```json
+{
+  "dev": {
+    "BASE_URL": "https://api.example.com",
+    "userId": "123"
+  },
+  "staging": {
+    "BASE_URL": "https://staging.api.example.com",
+    "userId": "456"
+  }
+}
+```
+
+### Sample http-client.private.env.json
+
+```json
+{
+  "dev": {
+    "auth_token": "",
+    "api_key": ""
+  },
+  "staging": {
+    "auth_token": "",
+    "api_key": ""
+  }
+}
+```
+
+## Troubleshooting
+
+### Common Errors
+
+#### "Failed to parse spec content"
+
+**Symptoms:** Error message showing both JSON and YAML parse failures.
+
+**Cause:** The OpenAPI spec file contains syntax errors.
+
+**Solution:**
+1. Validate your spec with an online tool like [Swagger Editor](https://editor.swagger.io/)
+2. Check for common YAML issues: incorrect indentation, missing colons, unquoted special characters
+3. For JSON, ensure proper comma placement and balanced braces
+
+#### "OpenAPI validation error"
+
+**Symptoms:** Error mentioning missing required fields or invalid OpenAPI structure.
+
+**Cause:** The spec is valid YAML/JSON but doesn't conform to OpenAPI 3.x schema.
+
+**Solution:**
+1. Ensure `openapi: "3.0.0"` (or 3.1.x) is present at the root
+2. Verify required fields: `info.title`, `info.version`, `paths`
+3. Check that all `$ref` references point to valid definitions
+
+#### "FileNotFoundError" or "No such file"
+
+**Symptoms:** The specified spec file cannot be found.
+
+**Solution:**
+1. Check the file path is correct (use absolute paths if unsure)
+2. Verify file extension matches (`.yaml`, `.yml`, or `.json`)
+3. For URLs, ensure the spec is publicly accessible
+
+#### "HTTP Error" when loading remote spec
+
+**Symptoms:** Error fetching spec from URL (401, 403, 404, etc.)
+
+**Solution:**
+1. **401/403**: The spec requires authentication; download it locally first
+2. **404**: Verify the URL is correct and the spec exists
+3. **Timeout**: Check network connectivity; try downloading manually
+
+#### Missing environment variables in output
+
+**Symptoms:** Generated .http file uses `{{variable}}` but env files don't define them.
+
+**Solution:**
+1. Security scheme variables (API keys, tokens) go in `http-client.private.env.json`
+2. Use `--base-url` to set a custom BASE_URL
+3. Path parameters like `{{userId}}` must be manually added to env files
+
+### FAQ
+
+**Q: Why are my pre/post request scripts not appearing?**
+
+A: Scripts are extracted from OpenAPI `x-pre-request-script` and `x-post-request-script` extensions on operations. Add these to your spec:
+
+```yaml
+paths:
+  /users:
+    get:
+      x-pre-request-script: "console.log('before');"
+      x-post-request-script: "client.assert(response.status === 200);"
+```
+
+**Q: How do I switch between environments?**
+
+A: In your editor:
+- **Kulala/PyCharm**: Select environment from the dropdown or run menu
+- **httpyac**: Use `# @env dev` directive or VS Code command palette
+- **VS Code REST Client**: Define environments in `.vscode/settings.json`
+
+**Q: Why use `--mode` flag?**
+
+A: The `--mode` flag adds editor-specific header comments for better IDE integration:
+- `--mode pycharm`: JetBrains documentation link
+- `--mode kulala`: Kulala.nvim documentation link
+- `--mode httpyac`: httpyac documentation link
+- `--mode default`: No header (maximum compatibility)
+
+The actual request syntax is identical across all modes.
+
 ## Development
 
-- Install dev dependencies, run in editable mode, and execute CLI locally.
+- Install dev dependencies: `uv pip install -e ".[test]"`
+- Run tests: `uv run pytest`
+- Run with coverage: `uv run pytest --cov=src --cov-report=term-missing`
+- Lint: `uv run ruff check src/ tests/`
+- Format: `uv run ruff format src/ tests/`
 - Code lives under `src/` using a src-layout.
 
 ## License

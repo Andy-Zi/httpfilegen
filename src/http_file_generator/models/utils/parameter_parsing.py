@@ -1,5 +1,6 @@
 import re
 from typing import Union
+from urllib.parse import quote
 from openapi_pydantic.v3.v3_1 import (
     Parameter as Parameter3_1,
     RequestBody as RequestBody3_1,
@@ -16,6 +17,13 @@ from jsf import JSF
 
 
 from ..http_file.var import HttpVariable
+
+
+def _encode_query_param_name(name: str) -> str:
+    """URL-encode a query parameter name, preserving safe characters."""
+    # Encode special characters in parameter names
+    # safe="" means encode everything except alphanumerics and _.-~
+    return quote(name, safe="_.-~")
 
 Parameter = Union[Parameter3_0, Parameter3_1]
 RequestBody = Union[RequestBody3_0, RequestBody3_1]
@@ -68,12 +76,19 @@ def handle_params(
 def handle_path_params(path: str, param: Parameter) -> tuple[str, HttpVariable]:
     """
     Handle path parameters in the request path.
+
+    Converts OpenAPI path parameter syntax to HTTP client template variable syntax:
+    - OpenAPI uses single braces: /users/{id}
+    - HTTP clients (IntelliJ, Kulala, httpyac) use double braces: /users/{{id}}
+
+    This conversion allows the generated .http file to use environment variables
+    that can be defined in http-client.env.json files.
     """
-    # find the param in the path
+    # OpenAPI path parameter token uses single braces
     token = "{" + param.name + "}"
     new_name = param.name
     if token in path:
-        # replace the param token with a templated variable
+        # Convert to double braces for HTTP client template variable syntax
         path = path.replace(token, "{{" + new_name + "}}")
     else:
         raise ValueError(f"Parameter {param.name} not found in path {path}")
@@ -139,10 +154,12 @@ def handle_query_params(path: str, param: Parameter) -> tuple[str, HttpVariable]
     """
     Handle query parameters in the request path.
     """
+    # URL-encode the parameter name for the query string
+    encoded_name = _encode_query_param_name(param.name)
     if "?" in path:
-        path += "\n&" + param.name + "={{" + param.name + "}}"
+        path += "\n&" + encoded_name + "={{" + param.name + "}}"
     else:
-        path += "\n?" + param.name + "={{" + param.name + "}}"
+        path += "\n?" + encoded_name + "={{" + param.name + "}}"
     if param.example:
         value = param.example
     elif param.examples:
@@ -162,8 +179,6 @@ def handle_query_params(path: str, param: Parameter) -> tuple[str, HttpVariable]
         value=str(value) or "",
         description=param.description or "",
     )
-    pass
-    # raise NotImplementedError
 
 
 def handle_header_params(path: str, param: Parameter) -> HttpVariable | None:
@@ -218,25 +233,42 @@ def handle_cookie_params(path: str, param: Parameter) -> HttpVariable | None:
 
 
 def handle_missing_path_parasm(path: str) -> tuple[str, list[HttpVariable]]:
-    params = []
-    if re_params := re.search(r"(?<!\{)\{([^}]+)\}(?!\})", path):
-        # find the param in the path
-        # param_name = re.search(r"{(.+?)}", path).group(1)
-        for param_name in re_params.groups():
-            # param_name = param_name.group(1)
-            new_name = param_name
-            placeholder = "{" + param_name + "}"
-            if placeholder in path:
-                # ensure placeholder remains single-braced
-                path = path.replace(placeholder, "{" + new_name + "}")
-            else:
-                raise ValueError(f"Parameter {param_name} not found in path {path}")
+    """
+    Find path parameters that weren't declared in the OpenAPI parameters list.
 
-            params.append(
-                HttpVariable(
-                    name=param_name,
-                    value="",
-                    description="",
-                )
+    Some specs define path segments like /users/{id} without a corresponding
+    parameter definition. This function detects those and creates placeholder
+    HttpVariables for them.
+
+    Returns:
+        tuple: Updated path (unchanged for missing params) and list of placeholder variables.
+    """
+    params = []
+    # Regex explanation: Match single-braced tokens like {param} but NOT double-braced {{param}}
+    #
+    # (?<!\{)     - Negative lookbehind: not preceded by '{'
+    # \{          - Literal opening brace
+    # ([^}]+)     - Capture group: one or more chars that aren't '}'
+    # \}          - Literal closing brace
+    # (?!\})      - Negative lookahead: not followed by '}'
+    #
+    # This distinguishes OpenAPI path params {id} from HTTP client template vars {{id}}
+    # Use findall() to find ALL undeclared parameters, not just the first one
+    param_names = re.findall(r"(?<!\{)\{([^}]+)\}(?!\})", path)
+    for param_name in param_names:
+        placeholder = "{" + param_name + "}"
+        if placeholder in path:
+            # Keep as single braces - these are undeclared params that need
+            # to be manually replaced. The path will need user intervention.
+            path = path.replace(placeholder, "{" + param_name + "}")
+        else:
+            raise ValueError(f"Parameter {param_name} not found in path {path}")
+
+        params.append(
+            HttpVariable(
+                name=param_name,
+                value="",
+                description="",
             )
+        )
     return path, params

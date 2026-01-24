@@ -1,0 +1,437 @@
+#####################################################
+### Request: GET /get?freeform={{freeform}}
+### Summary: Returns the GET request's data. Accepts any query parameters and any headers.
+#####################################################
+
+
+# Enter free-form query parameters in the JSON format `{ "param1": "value1", "param2": "value2", ... }`.
+#
+# Note that the parameters will be actually sent as `?param1=value1&param2=value2&...`
+@freeform={}
+
+GET {{BASE_URL}}/get
+?freeform={{freeform}}
+
+
+### Response Examples
+
+## Response example (200 application/json)
+# {}
+
+
+
+#####################################################
+### Request: DELETE /delete?freeform={{freeform}}
+### Summary: Returns the DELETE request's data. Accepts any query parameters and any headers.
+#####################################################
+
+
+# Enter free-form query parameters in the JSON format `{ "param1": "value1", "param2": "value2", ... }`.
+#
+# Note that the parameters will be actually sent as `?param1=value1&param2=value2&...`
+@freeform={}
+
+DELETE {{BASE_URL}}/delete
+?freeform={{freeform}}
+
+
+### Response Examples
+
+## Response example (200)
+# <no example available>
+
+
+
+#####################################################
+### Request: POST /post?freeform={{freeform}}
+### Summary: Returns the POSTed data
+#####################################################
+
+
+# Enter free-form query parameters in the JSON format `{ "param1": "value1", "param2": "value2", ... }`.
+#
+# Note that the parameters will be actually sent as `?param1=value1&param2=value2&...`
+@freeform={}
+
+POST {{BASE_URL}}/post
+?freeform={{freeform}}
+Content-Type: application/json
+
+{
+    "message": "Hello, world!"
+}
+### Request Examples
+
+## Request example (application/json)
+# {
+#   "message": "Hello, world!"
+# }
+
+## Request example (application/vnd+json - pizzaOrder)
+# {
+#   "custname": "Alice",
+#   "custtel": "+1-202-555-0100",
+#   "custemail": "alice@wonderland.net",
+#   "size": "medium",
+#   "topping": [
+#     "cheese",
+#     "mushroom"
+#   ],
+#   "delivery": "19:00",
+#   "comments": "Ring the door bell three times"
+# }
+
+## Request example (application/vnd+json - simpleObject)
+# {
+#   "foo": "bar"
+# }
+
+## Request example (application/xml)
+# {
+#   "message": "Hello, world!"
+# }
+
+## Request example (text/plain)
+# officiis
+
+## Request example (application/x-www-form-urlencoded - pizzaOrder)
+# {
+#   "custname": "Alice",
+#   "custtel": "+1-202-555-0100",
+#   "custemail": "alice@wonderland.net",
+#   "size": "medium",
+#   "topping": [
+#     "cheese",
+#     "mushroom"
+#   ],
+#   "delivery": "19:00",
+#   "comments": "Ring the door bell three times"
+# }
+
+## Request example (application/x-www-form-urlencoded - simpleObject)
+# {
+#   "foo": "bar"
+# }
+
+
+### Response Examples
+
+## Response example (200 application/json)
+# {
+#   "args": {},
+#   "headers": {},
+#   "origin": "reprehenderit sit ut sit ut Nullam placeat nunc ut",
+#   "url": "http://glenn.net/tagsabout.html"
+# }
+
+
+
+#####################################################
+### Request: GET /ip
+### Summary: Returns Origin IP.
+#####################################################
+
+
+GET {{BASE_URL}}/ip
+
+
+### Response Examples
+
+## Response example (200 application/json - oneIp)
+# {
+#   "origin": "10.100.10.10"
+# }
+
+## Response example (200 application/json - multipleIps)
+# {
+#   "origin": "10.100.10.10, 10.100.20.254, 52.91.14.13"
+# }
+
+
+
+#####################################################
+### Request: GET /headers
+### Summary: Returns the request headers.
+#####################################################
+
+
+GET {{BASE_URL}}/headers
+
+
+### Response Examples
+
+## Response example (200 application/json)
+# {
+#   "headers": {}
+# }
+
+
+
+#####################################################
+### Request: GET /delay/{{n}}
+### Summary: Delays responding for min(n, 10) seconds.
+#####################################################
+
+
+# Response delay, in seconds.
+@n=8
+
+GET {{BASE_URL}}/delay/{{n}}
+
+
+### Response Examples
+
+## Response example (200 application/json)
+# <no example available>
+
+
+
+#####################################################
+### Request: GET /status/{statusCode}
+#####################################################
+
+
+# @promptstatusCode
+
+GET {{BASE_URL}}/status/{statusCode}
+
+
+### Response Examples
+
+## Response example (default)
+# <no example available>
+
+
+
+#####################################################
+### Request: PUT /status/{statusCode}
+#####################################################
+
+
+# @promptstatusCode
+
+PUT {{BASE_URL}}/status/{statusCode}
+
+
+### Response Examples
+
+## Response example (default)
+# <no example available>
+
+
+
+#####################################################
+### Request: POST /status/{statusCode}
+#####################################################
+
+
+# @promptstatusCode
+
+POST {{BASE_URL}}/status/{statusCode}
+
+
+### Response Examples
+
+## Response example (default)
+# <no example available>
+
+
+
+#####################################################
+### Request: DELETE /status/{statusCode}
+#####################################################
+
+
+# @promptstatusCode
+
+DELETE {{BASE_URL}}/status/{statusCode}
+
+
+### Response Examples
+
+## Response example (default)
+# <no example available>
+
+
+
+#####################################################
+### Request: PATCH /status/{statusCode}
+#####################################################
+
+
+# @promptstatusCode
+
+PATCH {{BASE_URL}}/status/{statusCode}
+
+
+### Response Examples
+
+## Response example (default)
+# <no example available>
+
+
+
+#####################################################
+### Request: GET /xml
+### Summary: Returns some XML.
+#####################################################
+
+
+GET {{BASE_URL}}/xml
+
+
+### Response Examples
+
+## Response example (200 application/xml)
+# <no example available>
+
+
+
+#####################################################
+### Request: GET /html
+### Summary: Returns an HTML page
+#####################################################
+
+
+GET {{BASE_URL}}/html
+
+
+### Response Examples
+
+## Response example (200 text/html)
+# <no example available>
+
+
+
+#####################################################
+### Request: GET /image/{{format}}
+### Summary: Returns an image with the specified format.
+#####################################################
+
+
+@format=png
+
+GET {{BASE_URL}}/image/{{format}}
+
+
+### Response Examples
+
+## Response example (200 image/png, image/jpeg, image/webp)
+# adipisicing accusantium
+
+## Response example (200 image/svg+xml)
+# <no example available>
+
+## Response example (200 image/svg)
+# <no example available>
+
+
+
+#####################################################
+### Request: GET /image
+### Summary: Returns an image based on the Accept header.
+#####################################################
+
+
+GET {{BASE_URL}}/image
+
+
+### Response Examples
+
+## Response example (200 image/png, image/jpeg, image/webp)
+# nobis adipisicing Hic nec quas
+
+## Response example (200 image/svg+xml)
+# <no example available>
+
+## Response example (200 image/svg)
+# <no example available>
+
+## Response example (406)
+# <no example available>
+
+
+
+#####################################################
+### Request: GET /cache
+### Summary: Returns 200 unless an If-Modified-Since or If-None-Match header is provided, when it returns a 304.
+#####################################################
+
+
+# For testing purposes this header accepts any value. (???) See also https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/If-Modified-Since
+@If-Modified-Since=tellus. vehicula possimus enim culpa!
+
+# For testing purposes this header accepts any value. (???) See also https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/If-None-Match
+@If-None-Match="bfc13a64729c4290ef5b2c2730249c88ca92d82d"
+
+GET {{BASE_URL}}/cache
+
+
+### Response Examples
+
+## Response example (200)
+# <no example available>
+
+## Response example (304)
+# <no example available>
+
+
+
+#####################################################
+### Request: GET /cookies
+### Summary: Returns cookie data
+#####################################################
+
+
+GET {{BASE_URL}}/cookies
+
+
+### Response Examples
+
+## Response example (200)
+# <no example available>
+
+
+
+#####################################################
+### Request: GET /cookies/set?freeform={{freeform}}
+### Summary: Sets one or more simple cookies
+#####################################################
+
+
+# Enter free-form query parameters in the JSON format `{ "param1": "value1", "param2": "value2", ... }`.
+#
+# Note that the parameters will be actually sent as `?param1=value1&param2=value2&...`
+@freeform={}
+
+GET {{BASE_URL}}/cookies/set
+?freeform={{freeform}}
+
+
+### Response Examples
+
+## Response example (200)
+# <no example available>
+
+
+
+#####################################################
+### Request: GET /cookies/delete?freeform={{freeform}}
+### Summary: Delete one or more simple cookies
+#####################################################
+
+
+# Enter free-form query parameters in the JSON format `{ "param1": "value1", "param2": "value2", ... }`.
+#
+# Note that the parameters will be actually sent as `?param1=value1&param2=value2&...`
+@freeform={}
+
+GET {{BASE_URL}}/cookies/delete
+?freeform={{freeform}}
+
+
+### Response Examples
+
+## Response example (200)
+# <no example available>
+

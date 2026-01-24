@@ -1,7 +1,6 @@
 import json
-import os
 from pathlib import Path
-from typing import Any, NoReturn, Union
+from typing import Any, NoReturn
 from pydantic_core import Url
 
 try:
@@ -12,7 +11,7 @@ except ImportError:
 import typer
 
 from http_file_generator import HtttpFileGenerator
-from http_file_generator.models import METHOD, Filemode, HttpSettings, OpenApiParser
+from http_file_generator.models import METHOD, Filemode, EditorMode, HttpSettings, OpenApiParser
 
 app = typer.Typer(
     help="Generate .http files and env files from an OpenAPI spec.",
@@ -30,13 +29,15 @@ def _json_print(data: Any) -> None:
     typer.echo(json.dumps(data, indent=2, ensure_ascii=False, default=str))
 
 
-def _is_url(s):
+def _is_url(s: str | Path) -> bool:
+    """Check if the given value is a URL (starts with http:// or https://)."""
     if isinstance(s, Path):
         return False
     return s.startswith("http://") or s.startswith("https://")
 
 
-def _validate_spec_source(spec):
+def _validate_spec_source(spec: str | Path) -> str | Path:
+    """Validate spec source exists (for file paths) or return as-is (for URLs)."""
     if _is_url(spec):
         return spec
     p = spec if isinstance(spec, Path) else Path(spec)
@@ -60,19 +61,19 @@ def _load_config() -> dict[str, Any]:
     try:
         with open(config_path, "rb") as f:
             return tomllib.load(f)
-    except Exception:
-        # If config file is malformed, ignore it
+    except (OSError, tomllib.TOMLDecodeError):
+        # If config file is unreadable or malformed, ignore it
         return {}
 
 
-def _get_config_value(config: dict[str, Any], key: str, default=None):
+def _get_config_value(config: dict[str, Any], key: str, default: Any = None) -> Any:
     """Get a value from config, with optional defaults section."""
     if "defaults" in config and key in config["defaults"]:
         return config["defaults"][key]
     return config.get(key, default)
 
 
-def _method_upper_list(methods: Union[list[str], None]) -> Union[list[str], None]:
+def _method_upper_list(methods: list[str] | None) -> list[str] | None:
     if methods is None:
         return None
     result: list[str] = []
@@ -84,7 +85,7 @@ def _method_upper_list(methods: Union[list[str], None]) -> Union[list[str], None
     return result
 
 
-def _parse_filemode(value: Union[str, None]) -> Filemode:
+def _parse_filemode(value: str | None) -> Filemode:
     if value is None:
         return Filemode.SINGLE
     v = value.strip().lower()
@@ -93,6 +94,23 @@ def _parse_filemode(value: Union[str, None]) -> Filemode:
     if v in ("multi", "m"):
         return Filemode.MULTI
     _abort("Invalid value for --filemode: choose 'single' or 'multi'.")
+
+
+def _parse_editor_mode(value: str | None) -> EditorMode:
+    if value is None:
+        return EditorMode.DEFAULT
+    v = value.strip().lower()
+    if v in ("default", "d"):
+        return EditorMode.DEFAULT
+    if v in ("kulala", "k"):
+        return EditorMode.KULALA
+    if v in ("pycharm", "intellij", "jetbrains", "p"):
+        return EditorMode.PYCHARM
+    if v in ("httpyac", "vscode", "h", "v"):
+        return EditorMode.HTTPYAC
+    _abort(
+        "Invalid value for --mode: choose 'default', 'kulala', 'pycharm', or 'httpyac'."
+    )
 
 
 @app.command("generate")
@@ -155,6 +173,17 @@ def generate(
         "--private-env-filename",
         help="Private env filename.",
     ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Preview output without writing any files.",
+    ),
+    quiet: bool = typer.Option(
+        False,
+        "--quiet",
+        "-q",
+        help="Suppress informational output (only show errors and file paths).",
+    ),
 ) -> None:
     """
     Generate a .http file from an OpenAPI spec.
@@ -202,15 +231,59 @@ def generate(
 
     try:
         fm = _parse_filemode(filemode)
+        em = _parse_editor_mode(mode)
         settings = HttpSettings(
             filemode=fm,
             baseURL=Url(base_url) if base_url else None,
             include_examples=include_examples,
             include_schema=include_schema,
+            editor_mode=em,
         )
         gen = HtttpFileGenerator(spec, settings=settings)
     except Exception as e:
         _abort(f"Failed to parse spec: {e}")
+
+    # Dry-run mode: preview output without writing
+    if dry_run:
+        typer.secho("=== DRY RUN MODE ===", fg=typer.colors.YELLOW, bold=True)
+        typer.secho(f"\nWould write to: {out_path}", fg=typer.colors.CYAN)
+        if fm == Filemode.MULTI:
+            target_dir = (
+                out_path.parent / out_path.stem
+                if out_path.suffix == ".http"
+                else out_path
+            )
+            typer.secho(f"Mode: MULTI (directory: {target_dir})", fg=typer.colors.CYAN)
+        else:
+            typer.secho("Mode: SINGLE", fg=typer.colors.CYAN)
+
+        typer.secho("\n--- HTTP File Content Preview ---", fg=typer.colors.BLUE)
+        content = gen.http_file.to_http_file(
+            include_examples=settings.include_examples,
+            include_schema=settings.include_schema,
+            editor_mode=settings.editor_mode,
+        )
+        # Show first 100 lines or full content if shorter
+        lines = content.splitlines()
+        preview_lines = lines[:100]
+        typer.echo("\n".join(preview_lines))
+        if len(lines) > 100:
+            typer.secho(
+                f"\n... ({len(lines) - 100} more lines truncated)",
+                fg=typer.colors.YELLOW,
+            )
+
+        if env:
+            env_target_dir = env_dir or out_path.parent
+            typer.secho(
+                f"\nWould also generate env files in: {env_target_dir}",
+                fg=typer.colors.CYAN,
+            )
+            typer.echo(f"  - {public_env_filename}")
+            typer.echo(f"  - {private_env_filename}")
+
+        typer.secho("\n=== END DRY RUN ===", fg=typer.colors.YELLOW, bold=True)
+        return
 
     # Ensure write target based on mode
     if fm == Filemode.SINGLE:
@@ -219,7 +292,8 @@ def generate(
             gen.to_http_file(out_path)
         except Exception as e:
             _abort(f"Failed to write HTTP file: {e}")
-        typer.secho(f"HTTP file generated: {out_path}", fg=typer.colors.GREEN)
+        if not quiet:
+            typer.secho(f"HTTP file generated: {out_path}", fg=typer.colors.GREEN)
         default_env_dir = out_path.parent
     else:
         # MULTI mode: resolve target directory
@@ -235,7 +309,8 @@ def generate(
             gen.to_http_file(target_dir)
         except Exception as e:
             _abort(f"Failed to write HTTP files: {e}")
-        typer.secho(f"HTTP files generated under: {target_dir}", fg=typer.colors.GREEN)
+        if not quiet:
+            typer.secho(f"HTTP files generated under: {target_dir}", fg=typer.colors.GREEN)
         default_env_dir = target_dir
 
     if env:
@@ -251,24 +326,36 @@ def generate(
                 )
         public_env.parent.mkdir(parents=True, exist_ok=True)
         try:
-            gen.to_env_files(public_env, private_env, env_name=env_name)
+            has_valid_base_url = gen.to_env_files(public_env, private_env, env_name=env_name)
         except Exception as e:
             _abort(f"Failed to write env files: {e}")
-        typer.secho(
-            f"Env files generated: {public_env}, {private_env}", fg=typer.colors.GREEN
-        )
+        if not quiet:
+            typer.secho(
+                f"Env files generated: {public_env}, {private_env}", fg=typer.colors.GREEN
+            )
+        if not has_valid_base_url:
+            typer.secho(
+                "\nWarning: No valid base URL found in the OpenAPI spec.",
+                fg=typer.colors.YELLOW,
+                bold=True,
+            )
+            typer.echo(
+                "  The env file contains a placeholder. Please update BASE_URL manually."
+            )
+            typer.echo(f"  Edit: {public_env}")
 
-    # Inform about tool compatibility
-    typer.secho("\n📋 Tool Compatibility:", fg=typer.colors.BLUE, bold=True)
-    typer.echo("✅ Kulala (Neovim): Full support including environment files")
-    typer.echo("✅ PyCharm/IntelliJ: Full support with JetBrains HTTP Client")
-    typer.echo(
-        "✅ httpyac (VS Code): Full support - use httpyac extension, not REST Client"
-    )
-    typer.echo(
-        "⚠️  VS Code REST Client: Limited support - environment variables need manual setup"
-    )
-    typer.echo("\n💡 BASE_URL is now managed per-environment in the env files!")
+    # Inform about tool compatibility (unless quiet mode)
+    if not quiet:
+        typer.secho("\n Tool Compatibility:", fg=typer.colors.BLUE, bold=True)
+        typer.echo(" Kulala (Neovim): Full support including environment files")
+        typer.echo(" PyCharm/IntelliJ: Full support with JetBrains HTTP Client")
+        typer.echo(
+            " httpyac (VS Code): Full support - use httpyac extension, not REST Client"
+        )
+        typer.echo(
+            " VS Code REST Client: Limited support - environment variables need manual setup"
+        )
+        typer.echo("\n BASE_URL is now managed per-environment in the env files!")
 
 
 @app.command("env")
@@ -276,7 +363,7 @@ def gen_env(
     spec: str = typer.Argument(
         ..., help="Path or URL to the OpenAPI spec (yaml/json)."
     ),
-    out_dir: Union[Path, None] = typer.Option(
+    out_dir: Path | None = typer.Option(
         None,
         "--out-dir",
         "-d",
@@ -309,12 +396,22 @@ def gen_env(
     _ensure_write_target(public_env, overwrite)
     _ensure_write_target(private_env, overwrite)
     try:
-        gen.to_env_files(public_env, private_env, env_name=env_name)
+        has_valid_base_url = gen.to_env_files(public_env, private_env, env_name=env_name)
     except Exception as e:
         _abort(f"Failed to write env files: {e}")
     typer.secho(
         f"Env files generated: {public_env}, {private_env}", fg=typer.colors.GREEN
     )
+    if not has_valid_base_url:
+        typer.secho(
+            "\nWarning: No valid base URL found in the OpenAPI spec.",
+            fg=typer.colors.YELLOW,
+            bold=True,
+        )
+        typer.echo(
+            "  The env file contains a placeholder. Please update BASE_URL manually."
+        )
+        typer.echo(f"  Edit: {public_env}")
 
 
 @app.command("info")
@@ -377,12 +474,67 @@ def info(
                 typer.echo(f"  - {s['name']}: {s['type']}")
 
 
+@app.command("validate")
+def validate(
+    spec: str = typer.Argument(
+        ..., help="Path or URL to the OpenAPI spec (yaml/json)."
+    ),
+    json_out: bool = typer.Option(False, "--json", help="Output as JSON."),
+) -> None:
+    """
+    Validate an OpenAPI spec without generating any files.
+
+    Checks that the spec is valid YAML/JSON and conforms to OpenAPI 3.x schema.
+    Returns exit code 0 on success, 1 on failure.
+    """
+    spec = _validate_spec_source(spec)
+    errors: list[str] = []
+
+    try:
+        parser = OpenApiParser(spec)
+    except Exception as e:
+        errors.append(str(e))
+
+    if errors:
+        if json_out:
+            _json_print({"valid": False, "errors": errors})
+        else:
+            typer.secho("Validation FAILED", fg=typer.colors.RED, bold=True)
+            for err in errors:
+                typer.echo(f"  - {err}")
+        raise typer.Exit(1)
+
+    # Gather spec info for successful validation
+    info_data = parser.model.info
+    openapi_version = getattr(parser.model, "openapi", "unknown")
+    paths_count = len(parser.model.paths or {})
+    servers_count = len(parser.model.servers or [])
+
+    if json_out:
+        _json_print({
+            "valid": True,
+            "openapi_version": openapi_version,
+            "title": info_data.title if info_data else None,
+            "version": info_data.version if info_data else None,
+            "paths_count": paths_count,
+            "servers_count": servers_count,
+        })
+    else:
+        typer.secho("Validation OK", fg=typer.colors.GREEN, bold=True)
+        typer.echo(f"  OpenAPI version: {openapi_version}")
+        if info_data:
+            typer.echo(f"  Title: {info_data.title}")
+            typer.echo(f"  Version: {info_data.version}")
+        typer.echo(f"  Paths: {paths_count}")
+        typer.echo(f"  Servers: {servers_count}")
+
+
 @app.command("paths")
 def list_paths(
     spec: str = typer.Argument(
         ..., help="Path or URL to the OpenAPI spec (yaml/json)."
     ),
-    method: Union[list[str], None] = typer.Option(
+    method: list[str] | None = typer.Option(
         None,
         "--method",
         "-m",
@@ -420,7 +572,7 @@ def sample(
         ..., help="Path or URL to the OpenAPI spec (yaml/json)."
     ),
     path: str = typer.Argument(..., help="The API path to inspect, e.g. /users/{id}."),
-    method: Union[str, None] = typer.Option(
+    method: str | None = typer.Option(
         None, "--method", "-m", help="HTTP method to show. Defaults to all."
     ),
     request: bool = typer.Option(
@@ -429,10 +581,10 @@ def sample(
     response: bool = typer.Option(
         True, "--response/--no-response", help="Include response body samples."
     ),
-    status: Union[str, None] = typer.Option(
+    status: str | None = typer.Option(
         None, "--status", help="Filter a specific response HTTP status."
     ),
-    content_type: Union[str, None] = typer.Option(
+    content_type: str | None = typer.Option(
         None,
         "--content-type",
         help="Filter a specific content type.",
@@ -508,16 +660,21 @@ def batch(
         "-p",
         help="Glob(s) for spec files, comma-separated.",
     ),
-    filemode: Union[str, None] = typer.Option(
+    filemode: str | None = typer.Option(
         None,
         "--filemode",
         "-f",
         help="File generation mode: SINGLE (one .http) or MULTI (one per path).",
     ),
-    base_url: Union[str, None] = typer.Option(
+    base_url: str | None = typer.Option(
         None,
         "--base-url",
         help="Optional base URL to include in generated .http files.",
+    ),
+    mode: str = typer.Option(
+        "default",
+        "--mode",
+        help="Editor mode: default, kulala, pycharm, or httpyac.",
     ),
     include_examples: bool = typer.Option(
         False,
@@ -561,11 +718,13 @@ def batch(
         spec = spec.resolve()
         try:
             fm = _parse_filemode(filemode)
+            em = _parse_editor_mode(mode)
             settings = HttpSettings(
                 filemode=fm,
-                baseURL=base_url,
+                baseURL=Url(base_url) if base_url else None,
                 include_examples=include_examples,
                 include_schema=include_schema,
+                editor_mode=em,
             )
             gen = HtttpFileGenerator(spec, settings=settings)
             if fm == Filemode.SINGLE:
@@ -574,6 +733,7 @@ def batch(
                 content = gen.http_file.to_http_file(
                     include_examples=settings.include_examples,
                     include_schema=settings.include_schema,
+                    editor_mode=settings.editor_mode,
                 )
                 out_file.write_text(content)
                 env_base_dir = spec.parent

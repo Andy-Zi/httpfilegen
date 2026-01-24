@@ -1,6 +1,8 @@
 from __future__ import annotations
 from typing import Union
 
+from pydantic import ValidationError
+
 from http_file_generator.models.env_file.env_files import (
     HttpClientEnv,
     HttpClientPrivateEnv,
@@ -124,12 +126,32 @@ def _build_oauth2_private_config(
     return secrets or None
 
 
+def _is_valid_server_url(url: str | None) -> bool:
+    """Check if a server URL is valid and usable as a base URL.
+
+    Invalid URLs include:
+    - None or empty string
+    - "/" (root path only)
+    - Whitespace-only strings
+    """
+    if not url:
+        return False
+    url = url.strip()
+    if not url or url == "/":
+        return False
+    return True
+
+
+# Placeholder for missing base URL - users must update this
+BASE_URL_PLACEHOLDER = "TODO:// Set your API base URL here"
+
+
 def generate_env_dicts(
     model: OpenAPI,
     env_name: str = "dev",
     servers: list[Server] | None = None,
     base_url_override: str | None = None,
-) -> tuple[dict, dict]:
+) -> tuple[dict, dict, bool]:
     """
     Produce public (http-client.env.json) and private (http-client.private.env.json)
     skeletons for Kulala, based on the model's security schemes.
@@ -140,6 +162,9 @@ def generate_env_dicts(
         env_name: Base environment name (will be suffixed for multiple servers)
         servers: List of servers from OpenAPI spec
         base_url_override: Custom base URL to add as additional environment
+
+    Returns:
+        Tuple of (public_env_dict, private_env_dict, has_valid_base_url)
     """
     # Start with pydantic models
     public_env_model = HttpClientEnv()
@@ -212,8 +237,8 @@ def generate_env_dicts(
         for name, cfg in public_auth.items():
             try:
                 typed_public_auth[name] = OAuth2Auth(**cfg)
-            except Exception:
-                # Skip invalid entries
+            except (ValidationError, TypeError, KeyError):
+                # Skip entries with invalid OAuth2 configuration
                 continue
         if typed_public_auth:
             public_env_section.security = Security(Auth=typed_public_auth)
@@ -222,7 +247,8 @@ def generate_env_dicts(
         for name, cfg in private_auth.items():
             try:
                 typed_private_auth[name] = PrivateOAuth2Auth(**cfg)
-            except Exception:
+            except (ValidationError, TypeError, KeyError):
+                # Skip entries with invalid OAuth2 configuration
                 continue
         if typed_private_auth:
             private_env_section.security = PrivateSecurity(Auth=typed_private_auth)
@@ -234,11 +260,18 @@ def generate_env_dicts(
 
     # Create environment sections for each server
     env_sections = []
+    has_valid_base_url = False
 
-    # Add environments from servers
+    # Add environments from servers (filter out invalid URLs like "/" or empty)
     if servers:
-        for i, server in enumerate(servers, 1):
-            env_name_suffix = "" if i == 1 else str(i)
+        valid_server_index = 0
+        for server in servers:
+            # Skip invalid server URLs
+            if not _is_valid_server_url(server.url):
+                continue
+
+            valid_server_index += 1
+            env_name_suffix = "" if valid_server_index == 1 else str(valid_server_index)
             env_key = f"{env_name}{env_name_suffix}"
 
             # Create new section instances for each environment
@@ -247,6 +280,7 @@ def generate_env_dicts(
 
             # Add BASE_URL as extra field (models have extra="allow")
             public_section.BASE_URL = server.url  # type: ignore
+            has_valid_base_url = True
 
             # Copy security if it exists
             if public_env_section.security:
@@ -262,8 +296,8 @@ def generate_env_dicts(
 
             env_sections.append((env_key, public_section, private_section))
 
-    # Add environment from base_url_override if provided
-    if base_url_override:
+    # Add environment from base_url_override if provided and valid
+    if base_url_override and _is_valid_server_url(base_url_override):
         env_key = f"{env_name}{len(env_sections) + 1 if env_sections else ''}"
 
         # Create new section instances
@@ -272,6 +306,7 @@ def generate_env_dicts(
 
         # Add BASE_URL to the public section
         public_section.BASE_URL = base_url_override  # type: ignore
+        has_valid_base_url = True
 
         # Copy security if it exists
         if public_env_section.security:
@@ -285,10 +320,11 @@ def generate_env_dicts(
 
         env_sections.append((env_key, public_section, private_section))
 
-    # If no servers and no base_url_override, create a single environment
+    # If no valid servers and no valid base_url_override, create a single environment
+    # with a placeholder that users must update
     if not env_sections:
-        # Add default BASE_URL
-        public_env_section.BASE_URL = "https://api.example.com"  # type: ignore
+        # Add placeholder BASE_URL - user must update this
+        public_env_section.BASE_URL = BASE_URL_PLACEHOLDER  # type: ignore
         env_sections.append((env_name, public_env_section, private_env_section))
 
     # Attach all environment sections
@@ -308,4 +344,5 @@ def generate_env_dicts(
     return (
         public_env_model.model_dump(by_alias=True, exclude_none=True),
         private_env_model.model_dump(by_alias=True, exclude_none=True),
+        has_valid_base_url,
     )

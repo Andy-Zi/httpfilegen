@@ -1,5 +1,5 @@
 import json
-import json
+import urllib.error
 import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
@@ -14,19 +14,29 @@ from .models.settings.settings import Filemode, HttpSettings
 
 def _parse_spec_content(content: str) -> Any:
     """Parse content as JSON first, then try YAML if JSON fails."""
+    json_error = None
     try:
         return json.loads(content)
-    except json.JSONDecodeError:
-        try:
-            import yaml
+    except json.JSONDecodeError as e:
+        json_error = e
 
-            return yaml.safe_load(content)
-        except ImportError:
-            raise ValueError(
-                "YAML support not available. Install PyYAML to parse YAML files."
-            )
-        except Exception:
-            raise ValueError("Content is neither valid JSON nor YAML")
+    # JSON failed, try YAML
+    try:
+        import yaml
+
+        return yaml.safe_load(content)
+    except ImportError:
+        raise ValueError(
+            "YAML support not available. Install PyYAML: pip install pyyaml"
+        )
+    except yaml.YAMLError as e:
+        raise ValueError(
+            f"Failed to parse spec content.\n"
+            f"  JSON error: {json_error}\n"
+            f"  YAML error: {e}"
+        )
+    except Exception as e:
+        raise ValueError(f"Failed to parse spec content: {e}")
 
 
 def load_data(file: Path | str) -> Any:
@@ -37,14 +47,24 @@ def load_data(file: Path | str) -> Any:
         parsed = urlparse(file)
         if parsed.scheme in ("http", "https") and parsed.netloc:
             try:
-                with urllib.request.urlopen(file) as resp:
+                with urllib.request.urlopen(file, timeout=30) as resp:
                     charset = resp.headers.get_content_charset() or "utf-8"
                     content = resp.read().decode(charset)
                 data = _parse_spec_content(content)
-            except Exception as e:
+            except urllib.error.HTTPError as e:
                 raise ValueError(
-                    f"Failed to download or parse OpenAPI from URL '{file}': {e}"
+                    f"HTTP error fetching spec from '{file}': {e.code} {e.reason}"
                 )
+            except urllib.error.URLError as e:
+                raise ValueError(
+                    f"Network error fetching spec from '{file}': {e.reason}"
+                )
+            except TimeoutError:
+                raise ValueError(
+                    f"Timeout fetching spec from '{file}' (30s limit exceeded)"
+                )
+            except Exception as e:
+                raise ValueError(f"Failed to fetch spec from '{file}': {e}")
         else:
             # Treat as a local file path string
             content = Path(file).read_text()
@@ -52,11 +72,19 @@ def load_data(file: Path | str) -> Any:
 
     try:
         return ResolvingParser(spec_string=json.dumps(data)).specification
-    except ValidationError:
-        major, minor, patch = data.get("openapi").split(".")
-        if int(major) == 3 and (int(minor) > 0 or int(patch) > 0):
-            data["openapi"] = "3.1.0"
-            return ResolvingParser(spec_string=json.dumps(data)).specification
+    except ValidationError as e:
+        # Try to recover from OpenAPI 3.1+ validation issues
+        openapi_version = data.get("openapi", "unknown")
+        try:
+            major, minor, patch = str(openapi_version).split(".")
+            if int(major) == 3 and (int(minor) > 0 or int(patch) > 0):
+                data["openapi"] = "3.1.0"
+                return ResolvingParser(spec_string=json.dumps(data)).specification
+        except (ValueError, AttributeError):
+            pass
+        raise ValueError(
+            f"OpenAPI validation failed (version: {openapi_version}): {e}"
+        )
 
 
 class HtttpFileGenerator:
@@ -103,6 +131,7 @@ class HtttpFileGenerator:
             lines = self.http_file.to_http_file(
                 include_examples=self.settings.include_examples,
                 include_schema=self.settings.include_schema,
+                editor_mode=self.settings.editor_mode,
             )
             with Path.open(out_path, "w") as f:
                 # Using write for a single string payload
@@ -118,17 +147,20 @@ class HtttpFileGenerator:
 
     def to_env_files(
         self, public_out: Path, private_out: Path, env_name: str = "dev"
-    ) -> None:
+    ) -> bool:
         """
         Generate http-client.env.json and http-client.private.env.json skeletons
         based on the OpenAPI security schemes.
+
+        Returns:
+            True if a valid base URL was found, False if placeholder was used.
         """
         servers = self._openapi_model.servers or []
         base_url_override = (
             str(self.settings.baseURL) if self.settings.baseURL else None
         )
 
-        public_env, private_env = generate_env_dicts(
+        public_env, private_env, has_valid_base_url = generate_env_dicts(
             self._openapi_model,
             env_name=env_name,
             servers=servers,
@@ -138,6 +170,8 @@ class HtttpFileGenerator:
             json.dump(public_env, f, indent=2)
         with Path.open(private_out, "w") as f:
             json.dump(private_env, f, indent=2)
+
+        return has_valid_base_url
 
     # --- Multi-file helpers ---
     def _group_requests_by_path(self) -> dict[str, list]:
@@ -175,6 +209,7 @@ class HtttpFileGenerator:
             content = data.to_http_file(
                 include_examples=self.settings.include_examples,
                 include_schema=self.settings.include_schema,
+                editor_mode=self.settings.editor_mode,
             )
             with Path.open(target_file, "w") as f:
                 f.write(content)

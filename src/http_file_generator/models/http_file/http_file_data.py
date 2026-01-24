@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from .request import HttpRequest
 from ..enums import METHOD
 from .var import BaseURL
+from ..settings.settings import EditorMode
 
 Server = Union[Server3_0, Server3_1]
 SecurityScheme = Union[SecurityScheme3_0, SecurityScheme3_1]
@@ -48,9 +49,13 @@ class HttpFileData(BaseModel):
                         )
                         requests.append(request)
         base_urls = set()
-        for server in server:
+        for srv in server:
+            # Skip invalid server URLs (empty, "/", or whitespace-only)
+            url = srv.url.strip() if srv.url else ""
+            if not url or url == "/":
+                continue
             base_urls.add(
-                BaseURL(value=server.url, description=server.description or "")
+                BaseURL(value=srv.url, description=srv.description or "")
             )
 
         return cls(
@@ -59,13 +64,23 @@ class HttpFileData(BaseModel):
         )
 
     def to_http_file(
-        self, include_examples: bool = False, include_schema: bool = False
+        self,
+        include_examples: bool = False,
+        include_schema: bool = False,
+        editor_mode: EditorMode = EditorMode.DEFAULT,
     ) -> str:
         """
         Convert the data to an HTTP file string
         """
+        parts = []
+
+        # Add editor-specific header
+        header = self._get_editor_header(editor_mode)
+        if header:
+            parts.append(header)
+
         # requests
-        return "\n\n".join(
+        requests_content = "\n\n".join(
             request.to_http_file(
                 base_url="{{BASE_URL}}",
                 include_examples=include_examples,
@@ -73,3 +88,30 @@ class HttpFileData(BaseModel):
             )
             for request in self.requests
         )
+        parts.append(requests_content)
+
+        return "\n\n".join(parts)
+
+    def _get_editor_header(self, editor_mode: EditorMode) -> str:
+        """Generate editor-specific header comments."""
+        if editor_mode == EditorMode.DEFAULT:
+            return ""
+        elif editor_mode == EditorMode.KULALA:
+            return (
+                "# Kulala.nvim HTTP file\n"
+                "# https://github.com/mistweaverco/kulala.nvim\n"
+                "# Supports: {{variable}}, # @name, pre/post scripts"
+            )
+        elif editor_mode == EditorMode.PYCHARM:
+            return (
+                "# JetBrains HTTP Client file\n"
+                "# Supports: {{variable}}, # @name, > {% %} response handlers\n"
+                "# Docs: https://www.jetbrains.com/help/idea/http-client-in-product-code-editor.html"
+            )
+        elif editor_mode == EditorMode.HTTPYAC:
+            return (
+                "# httpyac HTTP file\n"
+                "# https://httpyac.github.io/\n"
+                "# Supports: {{variable}}, {{$dynamic}}, # @name, IntelliJ syntax"
+            )
+        return ""

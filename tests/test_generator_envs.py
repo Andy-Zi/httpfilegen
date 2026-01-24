@@ -32,7 +32,6 @@ def test_generate_env_files_from_model(sample_spec_path, tmp_path: Path) -> None
 def test_generate_env_files_multiple_servers(tmp_path: Path) -> None:
     """Test environment generation with multiple servers."""
     from http_file_generator import HtttpFileGenerator
-    from http_file_generator.models import HttpSettings
 
     # Create spec with multiple servers
     spec_content = {
@@ -133,8 +132,74 @@ def test_generate_env_files_no_servers(tmp_path: Path) -> None:
     pub = json.loads(public_env.read_text())
     prv = json.loads(private_env.read_text())
 
-    # Should have default environment with placeholder BASE_URL
+    # Should have default environment with placeholder BASE_URL since "/" is not valid
     assert "dev" in pub
     assert "dev" in prv
     assert "BASE_URL" in pub["dev"]
-    assert pub["dev"]["BASE_URL"] == "/"  # OpenAPI default server URL
+    # "/" is filtered out as invalid, so a placeholder is used
+    assert pub["dev"]["BASE_URL"] == "TODO:// Set your API base URL here"
+
+
+def test_to_env_files_returns_has_valid_base_url(sample_spec_path, tmp_path: Path) -> None:
+    """Test that to_env_files returns True when spec has valid server URL."""
+    from http_file_generator import HtttpFileGenerator
+
+    gen = HtttpFileGenerator(sample_spec_path)
+
+    public_env = tmp_path / "public.json"
+    private_env = tmp_path / "private.json"
+    has_valid_base_url = gen.to_env_files(public_env, private_env, env_name="dev")
+
+    # sample_spec_path has a valid server URL (https://api.example.com)
+    assert has_valid_base_url is True
+
+
+def test_to_env_files_returns_false_for_invalid_server(tmp_path: Path) -> None:
+    """Test that to_env_files returns False when spec has only invalid server URL."""
+    from http_file_generator import HtttpFileGenerator
+    import json
+
+    spec_content = {
+        "openapi": "3.0.3",
+        "info": {"title": "Test", "version": "1.0"},
+        "servers": [{"url": "/"}],  # Invalid - just root path
+        "paths": {},
+    }
+    spec_file = tmp_path / "invalid_server.json"
+    spec_file.write_text(json.dumps(spec_content))
+
+    gen = HtttpFileGenerator(spec_file)
+
+    public_env = tmp_path / "public.json"
+    private_env = tmp_path / "private.json"
+    has_valid_base_url = gen.to_env_files(public_env, private_env, env_name="dev")
+
+    # "/" is not a valid base URL
+    assert has_valid_base_url is False
+
+    # Verify placeholder is used
+    pub = json.loads(public_env.read_text())
+    assert pub["dev"]["BASE_URL"] == "TODO:// Set your API base URL here"
+
+
+def test_empty_server_url_is_filtered(tmp_path: Path) -> None:
+    """Test that empty server URLs are filtered out."""
+    from http_file_generator import HtttpFileGenerator
+    import json
+
+    spec_content = {
+        "openapi": "3.0.3",
+        "info": {"title": "Test", "version": "1.0"},
+        "servers": [{"url": ""}, {"url": "   "}],  # Empty and whitespace-only
+        "paths": {},
+    }
+    spec_file = tmp_path / "empty_server.json"
+    spec_file.write_text(json.dumps(spec_content))
+
+    gen = HtttpFileGenerator(spec_file)
+
+    public_env = tmp_path / "public.json"
+    private_env = tmp_path / "private.json"
+    has_valid_base_url = gen.to_env_files(public_env, private_env, env_name="dev")
+
+    assert has_valid_base_url is False
