@@ -18,6 +18,30 @@
         # Python 3.13 environment
         python = pkgs.python313;
 
+        # jsf package (not in nixpkgs)
+        jsf = python.pkgs.buildPythonPackage {
+          pname = "jsf";
+          version = "0.11.2";
+          src = pkgs.fetchPypi {
+            pname = "jsf";
+            version = "0.11.2";
+            sha256 = "07055b363281d38ce871a9256a00587d8472802c5108721a7fe5884465104b5d";
+          };
+          pyproject = true;
+          build-system = with python.pkgs; [ setuptools wheel ];
+          dependencies = with python.pkgs; [
+            faker
+            jsonschema
+            pydantic
+            requests
+            rstr
+            smart-open
+            typing-extensions
+          ];
+          pythonImportsCheck = [ "jsf" ];
+          doCheck = false;
+        };
+
         # Development dependencies
         devDeps = with pkgs; [
           uv
@@ -119,17 +143,22 @@
           version = "0.1.0";
           src = ./.;
 
+          pyproject = true;
           build-system = with python.pkgs; [ setuptools wheel ];
 
-          dependencies = with python.pkgs; [
+          nativeBuildInputs = [ python.pkgs.pythonRelaxDepsHook ];
+          pythonRelaxDeps = [ "pydantic-settings" "typer" ];
+
+          dependencies = [
             jsf
+          ] ++ (with python.pkgs; [
             openapi-pydantic
             openapi-spec-validator
             prance
             pydantic
             pydantic-settings
             typer
-          ];
+          ]);
 
           nativeCheckInputs = with python.pkgs; [
             pytest

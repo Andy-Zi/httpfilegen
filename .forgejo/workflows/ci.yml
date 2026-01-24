@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.13-slim
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y curl git
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv sync --extra test
+
+      - name: Run tests
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv run pytest
+
+      - name: Check coverage
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv run coverage report --fail-under=75
+
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.13-slim
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y curl
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Build package
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv build
+
+      - name: Verify package
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          pip install dist/*.whl
+          httpfilegen --help
