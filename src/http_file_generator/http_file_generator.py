@@ -70,8 +70,14 @@ def load_data(file: Path | str) -> Any:
             content = Path(file).read_text()
             data = _parse_spec_content(content)
 
+    def _recursion_handler(limit, ref_url, recursions):
+        return {}
+
     try:
-        return ResolvingParser(spec_string=json.dumps(data)).specification
+        return ResolvingParser(
+            spec_string=json.dumps(data),
+            recursion_limit_handler=_recursion_handler,
+        ).specification
     except ValidationError as e:
         # Try to recover from OpenAPI 3.1+ validation issues
         openapi_version = data.get("openapi", "unknown")
@@ -79,7 +85,10 @@ def load_data(file: Path | str) -> Any:
             major, minor, patch = str(openapi_version).split(".")
             if int(major) == 3 and (int(minor) > 0 or int(patch) > 0):
                 data["openapi"] = "3.1.0"
-                return ResolvingParser(spec_string=json.dumps(data)).specification
+                return ResolvingParser(
+                    spec_string=json.dumps(data),
+                    recursion_limit_handler=_recursion_handler,
+                ).specification
         except (ValueError, AttributeError):
             pass
         raise ValueError(

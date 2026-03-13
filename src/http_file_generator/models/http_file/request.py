@@ -198,7 +198,7 @@ class HttpRequest(BaseModel):
             faker = JSF(schema=schema)
             sample = faker.generate()
             return sample
-        except (ValueError, TypeError, KeyError, AttributeError):
+        except (ValueError, TypeError, KeyError, AttributeError, NotImplementedError):
             # Schema may be malformed or unsupported by JSF
             return None
 
