@@ -8,59 +8,51 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
-    container:
-      image: python:3.13-slim
+    runs-on: k8s-nix
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install system dependencies
+      - name: Checkout revision
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          apt-get update
-          apt-get install -y curl git
+          set -euo pipefail
+          git init .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          basic_auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          git -c http.extraHeader="Authorization: Basic $basic_auth" fetch --depth=1 origin "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+          git remote remove origin
+          unset basic_auth GITHUB_TOKEN
 
-      - name: Install uv
+      - name: Run tests and coverage
         run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Install dependencies
-        run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          uv sync --extra test
-
-      - name: Run tests
-        run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          uv run pytest
-
-      - name: Check coverage
-        run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          uv run coverage report --fail-under=75
+          nix develop --command bash -euo pipefail -c '
+            uv sync --extra test
+            uv run pytest
+            uv run coverage report --fail-under=75
+          '
 
   build:
-    runs-on: ubuntu-latest
-    container:
-      image: python:3.13-slim
+    runs-on: k8s-nix
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install build dependencies
+      - name: Checkout revision
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          apt-get update
-          apt-get install -y curl
-          curl -LsSf https://astral.sh/uv/install.sh | sh
+          set -euo pipefail
+          git init .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          basic_auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          git -c http.extraHeader="Authorization: Basic $basic_auth" fetch --depth=1 origin "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+          git remote remove origin
+          unset basic_auth GITHUB_TOKEN
 
       - name: Build package
-        run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          uv build
+        run: nix build .#default
 
       - name: Verify package
         run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          pip install dist/*.whl
-          httpfilegen --help
+          test -x result/bin/httpfilegen
+          result/bin/httpfilegen --help
