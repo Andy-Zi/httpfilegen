@@ -56,3 +56,15 @@ jobs:
         run: |
           test -x result/bin/httpfilegen
           result/bin/httpfilegen --help
+
+  summary:
+    name: Required checks
+    if: ${{ always() }}
+    needs: [test, build]
+    runs-on: general-xs
+    steps:
+      - name: Require all validation jobs
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          printf '%s\n' "$RESULTS" | jq -e 'all(.[]; .result == "success")'
