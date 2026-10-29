@@ -13,7 +13,9 @@ import typer
 from http_file_generator import HtttpFileGenerator
 from http_file_generator.models import METHOD, Filemode, EditorMode, HttpSettings, OpenApiParser
 from http_file_generator.overrides import (
+    DEFAULT_ADDED_SCHEME,
     PLACEHOLDER_TOKEN_URL,
+    add_oauth2_patch,
     bearer_to_oauth2_patch,
     default_override_path,
     dump_document,
@@ -870,25 +872,50 @@ def override_oauth2(
     overwrite: bool = typer.Option(
         False, "--overwrite/--no-overwrite", help="Overwrite an existing override."
     ),
+    add: bool = typer.Option(
+        False,
+        "--add",
+        help="Add a new OAuth2 scheme and require it for every operation without "
+        "its own security, instead of converting bearer schemes.",
+    ),
+    scheme_name: str = typer.Option(
+        DEFAULT_ADDED_SCHEME, "--scheme-name", help="Name of the scheme added by --add."
+    ),
 ) -> None:
     """
-    Write an override that turns HTTP bearer schemes into OAuth2 client credentials.
+    Write an override that switches the spec to OAuth2 client credentials.
+
+    By default HTTP bearer schemes are converted; with --add a new scheme is added.
     """
     _validate_spec_source(spec)
     try:
         data = load_document(spec)
     except Exception as e:
         _abort(f"Failed to read spec: {e}")
-    patch = bearer_to_oauth2_patch(data, token_url=token_url, scopes=scope)
-    if not patch:
-        _abort("No HTTP bearer security schemes found in the spec.")
+    if add:
+        try:
+            patch = add_oauth2_patch(
+                data, name=scheme_name, token_url=token_url, scopes=scope
+            )
+        except ValueError as e:
+            _abort(str(e))
+    else:
+        patch = bearer_to_oauth2_patch(data, token_url=token_url, scopes=scope)
+        if not patch:
+            _abort(
+                "No HTTP bearer security schemes found in the spec. "
+                "Use --add to add an OAuth2 scheme instead."
+            )
     out_path = out or default_override_path(spec)
     _ensure_write_target(out_path, overwrite)
     out_path.write_text(dump_document(patch, out_path))
 
     schemes = ", ".join(patch["components"]["securitySchemes"])
     typer.secho(f"Override written: {out_path}", fg=typer.colors.GREEN)
-    typer.echo(f"  Converted to OAuth2 client credentials: {schemes}")
+    if add:
+        typer.echo(f"  Added OAuth2 client credentials scheme: {schemes}")
+    else:
+        typer.echo(f"  Converted to OAuth2 client credentials: {schemes}")
     if token_url == PLACEHOLDER_TOKEN_URL:
         typer.secho(
             "  Token URL is a placeholder; pass --token-url or edit the override.",

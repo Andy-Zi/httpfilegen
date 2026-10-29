@@ -4,7 +4,10 @@ from pathlib import Path
 import yaml
 from typer.testing import CliRunner
 
+import pytest
+
 from http_file_generator.overrides import (
+    add_oauth2_patch,
     bearer_to_oauth2_patch,
     find_override,
     is_override_file,
@@ -102,6 +105,7 @@ def test_override_oauth2_command_fails_without_bearer(cli_app, tmp_path: Path) -
     spec.write_text(json.dumps({"openapi": "3.0.3", "paths": {}}))
     res = CliRunner().invoke(cli_app, ["override", "oauth2", str(spec)])
     assert res.exit_code == 1
+    assert "--add" in res.output
     assert not (tmp_path / "api_override.json").exists()
 
 
@@ -154,3 +158,56 @@ def test_batch_skips_override_files_and_applies_them(cli_app, tmp_path: Path) ->
     assert "OK: 1  Failed: 0" in res.output
     assert OAUTH_HEADER in (tmp_path / "api.http").read_text()
     assert not (tmp_path / "api_override.http").exists()
+
+
+UNSECURED_SPEC = """
+openapi: 3.0.3
+info:
+  title: C
+  version: '1.0'
+servers:
+  - url: https://api.example.com
+paths:
+  /items:
+    get:
+      responses:
+        '200':
+          description: ok
+  /health:
+    get:
+      security: []
+      responses:
+        '200':
+          description: ok
+""".strip()
+
+
+def test_add_oauth2_patch_prepends_root_requirement() -> None:
+    data = yaml.safe_load(SPEC)
+    data["security"] = [{"BearerAuth": []}]
+    patch = add_oauth2_patch(data, scopes=["r"])
+    assert patch["security"] == [{"OAuth2": ["r"]}, {"BearerAuth": []}]
+    scheme = patch["components"]["securitySchemes"]["OAuth2"]
+    assert scheme["flows"]["clientCredentials"]["scopes"] == {"r": ""}
+
+    with pytest.raises(ValueError):
+        add_oauth2_patch(data, name="BearerAuth")
+
+
+def test_override_oauth2_add_secures_unsecured_spec(cli_app, tmp_path: Path) -> None:
+    spec = tmp_path / "c.yaml"
+    spec.write_text(UNSECURED_SPEC)
+    runner = CliRunner()
+    res = runner.invoke(
+        cli_app, ["override", "oauth2", str(spec), "--add", "--scheme-name", "Cbp"]
+    )
+    assert res.exit_code == 0, res.output
+    assert (tmp_path / "c_override.yaml").exists()
+
+    res = runner.invoke(cli_app, ["generate", str(spec), "--no-env"])
+    assert res.exit_code == 0, res.output
+    blocks = (tmp_path / "c.http").read_text().split("### Request:")
+    items = next(b for b in blocks if b.startswith(" GET /items"))
+    health = next(b for b in blocks if b.startswith(" GET /health"))
+    assert 'Authorization: Bearer {{$auth.token("Cbp")}}' in items
+    assert "Authorization" not in health

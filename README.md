@@ -273,6 +273,12 @@ httpfilegen override oauth2 api.json --token-url https://id.example.com/oauth2/t
 
 Scheme names are kept, so existing `security` requirements still match.
 
+If the spec declares no auth at all, `--add` adds a new scheme (named `OAuth2`, or `--scheme-name`) and requires it for every operation without its own `security`; operations marked `security: []` stay public:
+
+```bash
+httpfilegen override oauth2 api.json --add --token-url https://id.example.com/oauth2/token
+```
+
 ## Programmatic usage
 
 You can also import and use the generator in Python code:

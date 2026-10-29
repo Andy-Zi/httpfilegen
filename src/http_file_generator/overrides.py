@@ -11,6 +11,7 @@ from typing import Any
 OVERRIDE_SUFFIX = "_override"
 OVERRIDE_EXTENSIONS = (".yaml", ".yml", ".json")
 PLACEHOLDER_TOKEN_URL = "https://CHANGE-ME.example.com/oauth2/token"
+DEFAULT_ADDED_SCHEME = "OAuth2"
 
 
 def is_override_file(path: Path) -> bool:
@@ -65,6 +66,20 @@ def apply_override(data: Any, override: Path) -> Any:
     return merge_patch(data, patch)
 
 
+def _client_credentials_scheme(
+    token_url: str, scopes: list[str] | None
+) -> dict[str, Any]:
+    return {
+        "type": "oauth2",
+        "flows": {
+            "clientCredentials": {
+                "tokenUrl": token_url,
+                "scopes": {s: "" for s in scopes or []},
+            }
+        },
+    }
+
+
 def bearer_to_oauth2_patch(
     spec_data: dict[str, Any],
     token_url: str = PLACEHOLDER_TOKEN_URL,
@@ -85,19 +100,36 @@ def bearer_to_oauth2_patch(
         ):
             continue
         patched[name] = {
-            "type": "oauth2",
+            **_client_credentials_scheme(token_url, scopes),
             "scheme": None,
             "bearerFormat": None,
-            "flows": {
-                "clientCredentials": {
-                    "tokenUrl": token_url,
-                    "scopes": {s: "" for s in scopes or []},
-                }
-            },
         }
     if not patched:
         return {}
     return {"components": {"securitySchemes": patched}}
+
+
+def add_oauth2_patch(
+    spec_data: dict[str, Any],
+    name: str = DEFAULT_ADDED_SCHEME,
+    token_url: str = PLACEHOLDER_TOKEN_URL,
+    scopes: list[str] | None = None,
+) -> dict[str, Any]:
+    """Build a patch adding an OAuth2 client-credentials scheme as the default requirement.
+
+    The new requirement goes first in the root ``security`` list, which applies to
+    every operation without its own ``security``; existing alternatives are kept.
+    """
+    schemes = (spec_data.get("components") or {}).get("securitySchemes") or {}
+    if name in schemes:
+        raise ValueError(f"Security scheme already exists: {name}")
+    root_security = spec_data.get("security") or []
+    return {
+        "components": {
+            "securitySchemes": {name: _client_credentials_scheme(token_url, scopes)}
+        },
+        "security": [{name: list(scopes or [])}, *root_security],
+    }
 
 
 def dump_document(data: Any, path: Path) -> str:
