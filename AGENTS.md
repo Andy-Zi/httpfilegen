@@ -14,7 +14,7 @@ This file contains development guidelines and commands for coding agents working
 - **Run tests in verbose mode**: `uv run pytest -v`
 
 ### Linting and Code Quality
-- **Ruff** is in the `dev` dependency group, which `uv sync` installs by default
+- **Ruff** comes from the Nix dev shell (`nix develop` or direnv), pinned by `flake.lock`; the PyPI wheel does not run on NixOS
 - **Lint code**: `uv run ruff check src/ tests/`
 - **Auto-fix linting issues**: `uv run ruff check --fix src/ tests/`
 - **Format code**: `uv run ruff format src/ tests/`

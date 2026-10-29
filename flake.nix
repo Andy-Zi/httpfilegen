@@ -24,7 +24,7 @@
           uv
           python
           git
-          # Add any other dev tools
+          ruff
         ];
 
       in
