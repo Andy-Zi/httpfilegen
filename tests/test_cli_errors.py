@@ -20,35 +20,6 @@ def test_generate_overwrite_refusal(cli_app, sample_spec_path, tmp_path: Path) -
     assert "Refusing to overwrite" in res2.output
 
 
-def test_env_overwrite_refusal(cli_app, sample_spec_path, tmp_path: Path) -> None:
-    runner = CliRunner()
-
-    # First env generation
-    res1 = runner.invoke(
-        cli_app,
-        [
-            "env",
-            str(sample_spec_path),
-            "--out-dir",
-            str(tmp_path),
-        ],
-    )
-    assert res1.exit_code == 0, res1.output
-
-    # Second env generation without overwrite should fail
-    res2 = runner.invoke(
-        cli_app,
-        [
-            "env",
-            str(sample_spec_path),
-            "--out-dir",
-            str(tmp_path),
-        ],
-    )
-    assert res2.exit_code != 0
-    assert "Refusing to overwrite existing file without --overwrite" in res2.output
-
-
 def test_paths_method_filter(cli_app, sample_spec_path) -> None:
     runner = CliRunner()
     res = runner.invoke(

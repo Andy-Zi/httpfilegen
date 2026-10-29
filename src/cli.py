@@ -130,20 +130,21 @@ def _get_config_value(config: dict[str, Any], key: str, default: Any = None) -> 
 
 
 def _apply_config_defaults(
-    mode: str,
+    mode: str | None,
     filemode: str | None,
     base_url: str | None,
-    env_name: str,
-    include_examples: bool,
-    include_schema: bool,
+    env_name: str | None,
+    include_examples: bool | None,
+    include_schema: bool | None,
 ) -> tuple[str, str | None, str | None, str, bool, bool]:
-    """Fill options still at their CLI default with values from the config file."""
+    """Fill options not given on the command line (None) from the config file.
+
+    Options missing from both fall back to the defaults shown in ``--help``.
+    """
     config = _load_config()
 
-    if mode == "default":
-        config_mode = _get_config_value(config, "mode")
-        if config_mode:
-            mode = str(config_mode)
+    if mode is None:
+        mode = str(_get_config_value(config, "mode") or "default")
     if filemode is None:
         config_filemode = _get_config_value(config, "filemode")
         if config_filemode:
@@ -152,13 +153,11 @@ def _apply_config_defaults(
         config_base_url = _get_config_value(config, "base_url")
         if config_base_url:
             base_url = str(config_base_url)
-    if env_name == "dev":
-        config_env_name = _get_config_value(config, "env_name")
-        if config_env_name:
-            env_name = str(config_env_name)
-    if not include_examples:
+    if env_name is None:
+        env_name = str(_get_config_value(config, "env_name") or "dev")
+    if include_examples is None:
         include_examples = _get_config_value(config, "include_examples") is True
-    if not include_schema:
+    if include_schema is None:
         include_schema = _get_config_value(config, "include_schema") is True
 
     return mode, filemode, base_url, env_name, include_examples, include_schema
@@ -224,31 +223,39 @@ def generate(
         "--base-url",
         help="Optional base URL to include in generated .http files.",
     ),
-    mode: str = typer.Option(
-        "default",
+    mode: str | None = typer.Option(
+        None,
         "--mode",
         help="Editor mode: default (cross-compatible), kulala (Neovim), pycharm (JetBrains), vscode (httpyac).",
+        show_default="default",
     ),
-    include_examples: bool = typer.Option(
-        False,
+    include_examples: bool | None = typer.Option(
+        None,
         "--include-examples/--no-include-examples",
         help="Include commented response examples next to each request.",
+        show_default="no-include-examples",
     ),
-    include_schema: bool = typer.Option(
-        False,
+    include_schema: bool | None = typer.Option(
+        None,
         "--include-schema/--no-include-schema",
         help="Include commented request body examples next to each request.",
+        show_default="no-include-schema",
     ),
     overwrite: bool = typer.Option(
-        False, "--overwrite/--no-overwrite", help="Overwrite existing files if present."
+        False,
+        "--overwrite/--no-overwrite",
+        help="Overwrite existing .http files. Existing env files are always merged.",
     ),
     env: bool = typer.Option(
         True,
         "--env/--no-env",
         help="Also generate http-client.env.json and http-client.private.env.json.",
     ),
-    env_name: str = typer.Option(
-        "dev", "--env-name", help="Environment section name for env files."
+    env_name: str | None = typer.Option(
+        None,
+        "--env-name",
+        help="Environment section name for env files.",
+        show_default="dev",
     ),
     env_dir=typer.Option(
         None,
@@ -388,13 +395,6 @@ def generate(
         env_target_dir = env_dir or default_env_dir
         public_env = env_target_dir / public_env_filename
         private_env = env_target_dir / private_env_filename
-        if not overwrite:
-            if public_env.exists():
-                _abort(f"Public env file already exists, use --overwrite: {public_env}")
-            if private_env.exists():
-                _abort(
-                    f"Private env file already exists, use --overwrite: {private_env}"
-                )
         public_env.parent.mkdir(parents=True, exist_ok=True)
         try:
             has_valid_base_url = _write_env_files(gen, public_env, private_env, env_name)
@@ -442,7 +442,10 @@ def gen_env(
     ),
     env_name: str = typer.Option("dev", "--env-name", help="Environment section name."),
     overwrite: bool = typer.Option(
-        False, "--overwrite/--no-overwrite", help="Overwrite existing env files."
+        False,
+        "--overwrite/--no-overwrite",
+        help="Has no effect: existing env files are always merged.",
+        hidden=True,
     ),
     public_env_filename: str = typer.Option(
         "http-client.env.json", "--public-env-filename", help="Public env filename."
@@ -467,8 +470,6 @@ def gen_env(
     target_dir = out_dir or (Path.cwd() if _is_url(spec) else Path(spec).parent)
     public_env = target_dir / public_env_filename
     private_env = target_dir / private_env_filename
-    _ensure_write_target(public_env, overwrite)
-    _ensure_write_target(private_env, overwrite)
     try:
         has_valid_base_url = _write_env_files(gen, public_env, private_env, env_name)
     except Exception as e:
@@ -757,28 +758,35 @@ def batch(
         "--base-url",
         help="Optional base URL to include in generated .http files.",
     ),
-    mode: str = typer.Option(
-        "default",
+    mode: str | None = typer.Option(
+        None,
         "--mode",
         help="Editor mode: default, kulala, pycharm, or httpyac.",
+        show_default="default",
     ),
-    include_examples: bool = typer.Option(
-        False,
+    include_examples: bool | None = typer.Option(
+        None,
         "--include-examples/--no-include-examples",
         help="Include commented response examples next to each request.",
+        show_default="no-include-examples",
     ),
-    include_schema: bool = typer.Option(
-        False,
+    include_schema: bool | None = typer.Option(
+        None,
         "--include-schema/--no-include-schema",
         help="Include commented request body examples next to each request.",
+        show_default="no-include-schema",
     ),
     overwrite: bool = typer.Option(
-        False, "--overwrite/--no-overwrite", help="Overwrite outputs if they exist."
+        False,
+        "--overwrite/--no-overwrite",
+        help="Overwrite existing .http outputs. Existing env files are always merged.",
     ),
     env: bool = typer.Option(
         True, "--env/--no-env", help="Also generate env files for each spec."
     ),
-    env_name: str = typer.Option("dev", "--env-name", help="Environment section name."),
+    env_name: str | None = typer.Option(
+        None, "--env-name", help="Environment section name.", show_default="dev"
+    ),
     no_override: bool = typer.Option(
         False, "--no-override", help="Ignore <spec>_override.* files next to specs."
     ),
@@ -846,8 +854,7 @@ def batch(
             if env:
                 public_env = env_base_dir / "http-client.env.json"
                 private_env = env_base_dir / "http-client.private.env.json"
-                if overwrite or (not public_env.exists() and not private_env.exists()):
-                    _write_env_files(gen, public_env, private_env, env_name)
+                _write_env_files(gen, public_env, private_env, env_name)
             processed += 1
             if fm == Filemode.SINGLE:
                 typer.secho(f"Generated: {out_file}", fg=typer.colors.GREEN)

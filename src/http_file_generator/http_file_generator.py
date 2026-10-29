@@ -1,9 +1,14 @@
 import json
 import re
 from pathlib import Path
+from typing import Any
 
 from .models import BaseURL, HttpClientBaseEnv, HttpFileData, OpenApiParser
-from .models.env_file.generator import generate_env_dicts
+from .models.env_file.generator import (
+    generate_env_dicts,
+    has_base_url_placeholder,
+    merge_env_dicts,
+)
 from .models.settings.settings import Filemode, HttpSettings
 from .spec_loader import _parse_spec_content, load_data  # noqa: F401
 
@@ -41,6 +46,19 @@ def _directory_names(paths: list[list[str]]) -> dict[tuple[str, ...], str]:
                 pad += "_"
             names[key] = name
     return names
+
+
+def _read_env_file(path: Path) -> dict[str, Any]:
+    """Return the JSON object stored at ``path``, or ``{}`` if it does not exist."""
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text())
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Cannot merge into invalid JSON env file {path}: {e}")
+    if not isinstance(data, dict):
+        raise ValueError(f"Cannot merge into env file without a JSON object: {path}")
+    return data
 
 
 class HtttpFileGenerator:
@@ -114,8 +132,11 @@ class HtttpFileGenerator:
         Generate http-client.env.json and http-client.private.env.json skeletons
         based on the OpenAPI security schemes.
 
+        Existing files are merged with ``merge_env_dicts``: values the user filled
+        in, and keys or environments the generator does not produce, are kept.
+
         Returns:
-            True if a valid base URL was found, False if placeholder was used.
+            False if a BASE_URL placeholder remains in the public env, else True.
         """
         servers = self._openapi_model.servers or []
         base_url_override = (
@@ -128,12 +149,14 @@ class HtttpFileGenerator:
             servers=servers,
             base_url_override=base_url_override,
         )
+        public_env = merge_env_dicts(_read_env_file(public_out), public_env)
+        private_env = merge_env_dicts(_read_env_file(private_out), private_env)
         with Path.open(public_out, "w") as f:
             json.dump(public_env, f, indent=2)
         with Path.open(private_out, "w") as f:
             json.dump(private_env, f, indent=2)
 
-        return has_valid_base_url
+        return has_valid_base_url or not has_base_url_placeholder(public_env)
 
     # --- Multi-file helpers ---
     def _group_requests_by_path(self) -> dict[str, list]:

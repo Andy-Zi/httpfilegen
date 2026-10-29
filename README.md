@@ -146,6 +146,7 @@ httpfilegen generate path/to/openapi.yaml \
 
 - By default, an output file is created next to the spec with the same basename and .http extension.
 - Add `--no-env` to skip environment files.
+- Existing env files are merged, not replaced: values you filled in and extra keys or environments are kept, while new keys are added and generator placeholders (`CHANGE_ME`, `TODO://...`, `https://CHANGE-ME.example.com/...`) are refreshed. An auth entry whose `Type` or `Grant Type` changed is replaced, keeping your values for keys it still has. `--overwrite` applies only to `.http` output.
 
 Options of interest:
 - `--filemode, -f`: Generation mode. `SINGLE` (default) writes one .http file. `MULTI` writes one .http per API path and mirrors the path structure as directories.

@@ -172,6 +172,80 @@ def _is_valid_server_url(url: str | None) -> bool:
 
 # Placeholder for missing base URL - users must update this
 BASE_URL_PLACEHOLDER = "TODO:// Set your API base URL here"
+PLACEHOLDER_VALUE = "CHANGE_ME"
+# Host of every placeholder URL (OIDC endpoints, override token URLs)
+PLACEHOLDER_URL_PREFIX = "https://change-me.example.com/"
+AUTH_KIND_KEYS = ("Type", "Grant Type")
+
+
+def is_placeholder(value: object) -> bool:
+    """True for values the generator writes as stand-ins for user input."""
+    if not isinstance(value, str):
+        return False
+    return (
+        value == PLACEHOLDER_VALUE
+        or value.startswith("TODO://")
+        or value.lower().startswith(PLACEHOLDER_URL_PREFIX)
+    )
+
+
+def _merge_auth_entry(existing: dict, generated: dict) -> dict:
+    """Merge one ``Security.Auth`` entry.
+
+    If the generated entry has a different ``Type`` or ``Grant Type``, its keys
+    replace the existing ones; filled-in values are carried over only for keys
+    the generated entry still has.
+    """
+    if all(existing.get(k) == generated[k] for k in AUTH_KIND_KEYS if k in generated):
+        return merge_env_dicts(existing, generated)
+    return {
+        key: existing[key]
+        if key in existing
+        and key not in AUTH_KIND_KEYS
+        and not is_placeholder(existing[key])
+        else value
+        for key, value in generated.items()
+    }
+
+
+def _merge_auth(existing: dict, generated: dict) -> dict:
+    merged = dict(existing)
+    for name, entry in generated.items():
+        current = merged.get(name)
+        if isinstance(current, dict) and isinstance(entry, dict):
+            merged[name] = _merge_auth_entry(current, entry)
+        elif name not in merged or is_placeholder(current):
+            merged[name] = entry
+    return merged
+
+
+def merge_env_dicts(existing: dict, generated: dict) -> dict:
+    """Merge freshly generated env content into an existing env file's content.
+
+    Existing values win unless they are generator placeholders; keys present only
+    in ``generated`` are added and keys present only in ``existing`` are kept.
+    ``Security.Auth`` entries follow ``_merge_auth_entry``.
+    """
+    merged = dict(existing)
+    for key, value in generated.items():
+        if key not in merged:
+            merged[key] = value
+            continue
+        current = merged[key]
+        if key == "Auth" and isinstance(current, dict) and isinstance(value, dict):
+            merged[key] = _merge_auth(current, value)
+        elif isinstance(current, dict) and isinstance(value, dict):
+            merged[key] = merge_env_dicts(current, value)
+        elif is_placeholder(current):
+            merged[key] = value
+    return merged
+
+
+def has_base_url_placeholder(public_env: dict) -> bool:
+    return any(
+        isinstance(section, dict) and is_placeholder(section.get("BASE_URL"))
+        for section in public_env.values()
+    )
 
 
 def generate_env_dicts(
