@@ -1,4 +1,5 @@
 from __future__ import annotations
+import warnings
 from typing import Union
 
 from pydantic import ValidationError
@@ -33,6 +34,29 @@ Server = Union[Server3_0, Server3_1]
 # Note: Public env uses the public schema; private env uses the private schema
 PUBLIC_SCHEMA_URL = "https://raw.githubusercontent.com/mistweaverco/kulala.nvim/main/schemas/http-client.env.schema.json"
 PRIVATE_SCHEMA_URL = "https://raw.githubusercontent.com/mistweaverco/kulala.nvim/main/schemas/http-client.private.env.schema.json"
+
+# Kulala has no OIDC discovery, so openIdConnect schemes get these placeholders
+OIDC_PLACEHOLDER_AUTH_URL = "https://CHANGE-ME.example.com/oauth2/authorize"
+OIDC_PLACEHOLDER_TOKEN_URL = "https://CHANGE-ME.example.com/oauth2/token"
+
+
+class EnvAuthWarning(UserWarning):
+    """A security scheme could not be fully expressed in the env files."""
+
+
+def _warn(scheme_name: str, reason: str) -> None:
+    warnings.warn(
+        f"Security scheme '{scheme_name}': {reason}", EnvAuthWarning, stacklevel=3
+    )
+
+
+def _validation_reason(exc: Exception) -> str:
+    if isinstance(exc, ValidationError):
+        return "; ".join(
+            f"{'.'.join(str(p) for p in err['loc']) or 'config'}: {err['msg']}"
+            for err in exc.errors()
+        )
+    return str(exc)
 
 
 def _sanitize(name: str) -> str:
@@ -75,11 +99,15 @@ def _build_oauth2_public_config(
 ) -> dict | None:
     chosen = _choose_oauth2_flow(scheme)
     if not chosen:
-        # missing flows; cannot build a valid typed config
+        _warn(scheme_name, "oauth2 scheme has no flows; auth config skipped")
         return None
     grant_type, flow = chosen
-    # Skip implicit to avoid failing required Token URL in typed model
     if grant_type == "Implicit":
+        _warn(
+            scheme_name,
+            "implicit flow is not supported by the generated OAuth2 config; "
+            "auth config skipped",
+        )
         return None
     cfg: dict = {
         "Type": "OAuth2",
@@ -185,10 +213,10 @@ def generate_env_dicts(
 
     if sec_schemes:
         for name, scheme in sec_schemes.items():
-            # Ignore unresolved references
             if not isinstance(scheme, SecurityScheme3_0) and not isinstance(
                 scheme, SecurityScheme3_1
             ):
+                _warn(name, "unresolved $ref; skipped")
                 continue
             alias = _sanitize(name)
             stype = scheme.type
@@ -204,8 +232,22 @@ def generate_env_dicts(
                     private_auth[name] = prv_cfg
 
             elif stype == "openIdConnect":
-                # Skip: not represented as OAuth2 in our typed model without discovery values
-                pass
+                public_auth[name] = {
+                    "Type": "OAuth2",
+                    "Grant Type": "Authorization Code",
+                    "Client ID": "CHANGE_ME",
+                    "Auth URL": OIDC_PLACEHOLDER_AUTH_URL,
+                    "Token URL": OIDC_PLACEHOLDER_TOKEN_URL,
+                    "Scope": "openid",
+                }
+                private_auth[name] = {"Client Secret": "CHANGE_ME"}
+                discovery = scheme.openIdConnectUrl or "the provider's discovery document"
+                _warn(
+                    name,
+                    "Kulala does not support OpenID Connect discovery; set Auth URL "
+                    "and Token URL to authorization_endpoint and token_endpoint from "
+                    f"{discovery}",
+                )
 
             elif stype == "http":
                 scheme_name = (scheme.scheme or "").lower()
@@ -218,8 +260,7 @@ def generate_env_dicts(
                     # No secrets to collect
                     pass
                 else:
-                    # Unknown http scheme
-                    pass
+                    _warn(name, f"unsupported http scheme '{scheme.scheme}'; skipped")
 
             elif stype == "apiKey":
                 private_vars[alias] = "CHANGE_ME"
@@ -229,16 +270,19 @@ def generate_env_dicts(
                 pass
 
             else:
-                # Unsupported/custom
-                pass
+                _warn(name, f"unsupported security scheme type '{stype}'; skipped")
 
     if public_auth:
         typed_public_auth: dict[str, OAuth2Auth] = {}
         for name, cfg in public_auth.items():
             try:
                 typed_public_auth[name] = OAuth2Auth(**cfg)
-            except (ValidationError, TypeError, KeyError):
-                # Skip entries with invalid OAuth2 configuration
+            except (ValidationError, TypeError, KeyError) as exc:
+                _warn(
+                    name,
+                    f"invalid OAuth2 config dropped from public env: "
+                    f"{_validation_reason(exc)}",
+                )
                 continue
         if typed_public_auth:
             public_env_section.security = Security(Auth=typed_public_auth)
@@ -247,8 +291,12 @@ def generate_env_dicts(
         for name, cfg in private_auth.items():
             try:
                 typed_private_auth[name] = PrivateOAuth2Auth(**cfg)
-            except (ValidationError, TypeError, KeyError):
-                # Skip entries with invalid OAuth2 configuration
+            except (ValidationError, TypeError, KeyError) as exc:
+                _warn(
+                    name,
+                    f"invalid OAuth2 config dropped from private env: "
+                    f"{_validation_reason(exc)}",
+                )
                 continue
         if typed_private_auth:
             private_env_section.security = PrivateSecurity(Auth=typed_private_auth)

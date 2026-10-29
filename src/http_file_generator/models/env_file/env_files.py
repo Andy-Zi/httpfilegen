@@ -125,7 +125,9 @@ class OAuth2Auth(BaseModel):
     assertion: str | None = Field(default=None, alias="Assertion")
     jwt: dict[str, Any] | None = Field(default=None, alias="JWT")
     scope: str | None = Field(default=None, alias="Scope")
-    expires_in: int = Field(default=10, alias="Expires In")
+    # Kulala uses this only when the token response omits expires_in; its own
+    # fallback of 10 seconds would re-acquire the token almost every request.
+    expires_in: int = Field(default=3600, alias="Expires In")
     acquire_automatically: bool = Field(default=True, alias="Acquire Automatically")
     username: str | None = Field(default=None, alias="Username")
     password: str | None = Field(default=None, alias="Password")

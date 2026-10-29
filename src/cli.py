@@ -1,4 +1,5 @@
 import json
+import warnings
 from pathlib import Path
 from typing import Any, NoReturn
 from pydantic_core import Url
@@ -12,6 +13,7 @@ import typer
 
 from http_file_generator import HtttpFileGenerator
 from http_file_generator.models import METHOD, Filemode, EditorMode, HttpSettings, OpenApiParser
+from http_file_generator.models.env_file.generator import EnvAuthWarning
 from http_file_generator.overrides import (
     DEFAULT_ADDED_SCHEME,
     PLACEHOLDER_TOKEN_URL,
@@ -45,6 +47,21 @@ NO_OVERRIDE_HELP = "Ignore any override file next to the spec."
 def _abort(msg: str, code: int = 1) -> NoReturn:
     typer.secho(msg, fg=typer.colors.RED, err=True)
     raise typer.Exit(code)
+
+
+def _write_env_files(
+    gen: HtttpFileGenerator, public_env: Path, private_env: Path, env_name: str
+) -> bool:
+    """Write env files and print a warning for each auth config that was dropped or incomplete."""
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", EnvAuthWarning)
+        has_valid_base_url = gen.to_env_files(public_env, private_env, env_name=env_name)
+    for w in caught:
+        if issubclass(w.category, EnvAuthWarning):
+            typer.secho(f"Warning: {w.message}", fg=typer.colors.YELLOW, err=True)
+        else:
+            warnings.showwarning(w.message, w.category, w.filename, w.lineno)
+    return has_valid_base_url
 
 
 def _json_print(data: Any) -> None:
@@ -380,7 +397,7 @@ def generate(
                 )
         public_env.parent.mkdir(parents=True, exist_ok=True)
         try:
-            has_valid_base_url = gen.to_env_files(public_env, private_env, env_name=env_name)
+            has_valid_base_url = _write_env_files(gen, public_env, private_env, env_name)
         except Exception as e:
             _abort(f"Failed to write env files: {e}")
         if not quiet:
@@ -453,7 +470,7 @@ def gen_env(
     _ensure_write_target(public_env, overwrite)
     _ensure_write_target(private_env, overwrite)
     try:
-        has_valid_base_url = gen.to_env_files(public_env, private_env, env_name=env_name)
+        has_valid_base_url = _write_env_files(gen, public_env, private_env, env_name)
     except Exception as e:
         _abort(f"Failed to write env files: {e}")
     typer.secho(
@@ -830,7 +847,7 @@ def batch(
                 public_env = env_base_dir / "http-client.env.json"
                 private_env = env_base_dir / "http-client.private.env.json"
                 if overwrite or (not public_env.exists() and not private_env.exists()):
-                    gen.to_env_files(public_env, private_env, env_name=env_name)
+                    _write_env_files(gen, public_env, private_env, env_name)
             processed += 1
             if fm == Filemode.SINGLE:
                 typer.secho(f"Generated: {out_file}", fg=typer.colors.GREEN)
