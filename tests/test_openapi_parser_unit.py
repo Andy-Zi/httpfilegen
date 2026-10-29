@@ -13,7 +13,7 @@ info:
 servers:
   - url: https://api.example.com
 paths:
-  /a:
+  /a/{id}:
     get:
       parameters:
         - name: id
@@ -41,12 +41,12 @@ paths:
 
     p = OpenApiParser(spec)
     paths = p.get_paths()
-    assert "/a" in paths
+    assert "/a/{id}" in paths
     servers = p.get_server()
     assert servers and servers[0].url.startswith("https://")
     # params
-    path_params = p.get_path_params("/a")
-    query_params = p.get_query_params("/a")
+    path_params = p.get_path_params("/a/{id}")
+    query_params = p.get_query_params("/a/{id}")
     assert "GET" in path_params and "GET" in query_params
     assert (
         any(pr.param_in == "path" for pr in path_params["GET"])
