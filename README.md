@@ -260,6 +260,19 @@ httpfilegen batch path/to/specs \
 
 This scans the directory for matching specs and generates `.http` (+ env files) for each.
 
+### Spec overrides
+
+Fix a spec without editing it: put a [JSON Merge Patch](https://www.rfc-editor.org/rfc/rfc7386) next to it as `<spec>_override.{yaml,yml,json}`. Every command applies it automatically (`null` removes a key); `--override FILE` uses another file and `--no-override` ignores it. `batch` skips override files when collecting specs.
+
+A common case is a spec that declares bearer auth while the API actually uses OAuth2 client credentials:
+
+```bash
+httpfilegen override oauth2 api.json --token-url https://id.example.com/oauth2/token --scope read
+# -> api_override.json; generated requests then use {{$auth.token("BearerAuth")}}
+```
+
+Scheme names are kept, so existing `security` requirements still match.
+
 ## Programmatic usage
 
 You can also import and use the generator in Python code:

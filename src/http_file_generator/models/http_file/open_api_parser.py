@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from jsf import JSF
 
 from ..enums import METHOD
+from ...overrides import apply_override
 
 
 def _parse_spec_content(content: str) -> Any:
@@ -34,7 +35,7 @@ def _parse_spec_content(content: str) -> Any:
             raise ValueError("Content is neither valid JSON nor YAML")
 
 
-def _load_spec_data(file: Path | str) -> Any:
+def _load_spec_data(file: Path | str, override: Path | None = None) -> Any:
     """Load and parse OpenAPI spec from file or URL."""
     import urllib.request
     from urllib.parse import urlparse
@@ -59,6 +60,9 @@ def _load_spec_data(file: Path | str) -> Any:
             content = Path(file).read_text()
             data = _parse_spec_content(content)
 
+    if override is not None:
+        data = apply_override(data, override)
+
     from prance import ResolvingParser, ValidationError
 
     try:
@@ -73,10 +77,12 @@ def _load_spec_data(file: Path | str) -> Any:
 class OpenApiParser(BaseModel):
     model: OpenAPIv3
 
-    def __init__(self, data: Union[dict, str, Path]) -> None:
+    def __init__(
+        self, data: Union[dict, str, Path], override: Path | None = None
+    ) -> None:
         if isinstance(data, (str, Path)):
             # Load data from file/URL
-            parsed_data = _load_spec_data(data)
+            parsed_data = _load_spec_data(data, override)
         else:
             # Data is already parsed
             parsed_data = data

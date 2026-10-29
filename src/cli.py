@@ -12,12 +12,32 @@ import typer
 
 from http_file_generator import HtttpFileGenerator
 from http_file_generator.models import METHOD, Filemode, EditorMode, HttpSettings, OpenApiParser
+from http_file_generator.overrides import (
+    PLACEHOLDER_TOKEN_URL,
+    bearer_to_oauth2_patch,
+    default_override_path,
+    dump_document,
+    find_override,
+    is_override_file,
+    load_document,
+)
 
 app = typer.Typer(
     help="Generate .http files and env files from an OpenAPI spec.",
     no_args_is_help=True,
     add_completion=False,
 )
+override_app = typer.Typer(
+    help="Create spec override files (<spec>_override.{yaml,yml,json}).",
+    no_args_is_help=True,
+)
+app.add_typer(override_app, name="override")
+
+OVERRIDE_HELP = (
+    "Merge-patch file applied to the spec. "
+    "Defaults to <spec>_override.{yaml,yml,json} next to the spec."
+)
+NO_OVERRIDE_HELP = "Ignore any override file next to the spec."
 
 
 def _abort(msg: str, code: int = 1) -> NoReturn:
@@ -50,6 +70,23 @@ def _ensure_write_target(path: Path, overwrite: bool) -> None:
     if path.exists() and not overwrite:
         _abort(f"Refusing to overwrite existing file without --overwrite: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
+
+
+def _resolve_override(
+    spec: str | Path, override: Path | None, no_override: bool, quiet: bool = False
+) -> Path | None:
+    """Pick the explicit override, else auto-detect one next to a local spec."""
+    if override is not None:
+        if not override.is_file():
+            _abort(f"Override file not found: {override}")
+        resolved: Path | None = override
+    elif no_override or _is_url(spec):
+        resolved = None
+    else:
+        resolved = find_override(Path(spec))
+    if resolved is not None and not quiet:
+        typer.secho(f"Using override: {resolved}", fg=typer.colors.CYAN, err=True)
+    return resolved
 
 
 def _load_config() -> dict[str, Any]:
@@ -219,6 +256,8 @@ def generate(
         "-q",
         help="Suppress informational output (only show errors and file paths).",
     ),
+    override: Path | None = typer.Option(None, "--override", help=OVERRIDE_HELP),
+    no_override: bool = typer.Option(False, "--no-override", help=NO_OVERRIDE_HELP),
 ) -> None:
     """
     Generate a .http file from an OpenAPI spec.
@@ -231,6 +270,7 @@ def generate(
     )
 
     spec = _validate_spec_source(spec)
+    override_path = _resolve_override(spec, override, no_override, quiet)
     # Derive output path (file or directory depending on filemode)
     if out is not None:
         out_path = Path(out)
@@ -251,7 +291,7 @@ def generate(
             include_schema=include_schema,
             editor_mode=em,
         )
-        gen = HtttpFileGenerator(spec, settings=settings)
+        gen = HtttpFileGenerator(spec, settings=settings, override=override_path)
     except Exception as e:
         _abort(f"Failed to parse spec: {e}")
 
@@ -393,13 +433,16 @@ def gen_env(
         "--private-env-filename",
         help="Private env filename.",
     ),
+    override: Path | None = typer.Option(None, "--override", help=OVERRIDE_HELP),
+    no_override: bool = typer.Option(False, "--no-override", help=NO_OVERRIDE_HELP),
 ) -> None:
     """
     Generate only http-client env files from the OpenAPI security schemes.
     """
     spec = _validate_spec_source(spec)
+    override_path = _resolve_override(spec, override, no_override)
     try:
-        gen = HtttpFileGenerator(spec)
+        gen = HtttpFileGenerator(spec, override=override_path)
     except Exception as e:
         _abort(f"Failed to parse spec: {e}")
     target_dir = out_dir or (Path.cwd() if _is_url(spec) else Path(spec).parent)
@@ -432,13 +475,16 @@ def info(
         ..., help="Path or URL to the OpenAPI spec (yaml/json)."
     ),
     json_out: bool = typer.Option(False, "--json", help="Output as JSON."),
+    override: Path | None = typer.Option(None, "--override", help=OVERRIDE_HELP),
+    no_override: bool = typer.Option(False, "--no-override", help=NO_OVERRIDE_HELP),
 ) -> None:
     """
     Print a summary of the OpenAPI spec: servers, paths, methods, and security schemes.
     """
     spec = _validate_spec_source(spec)
+    override_path = _resolve_override(spec, override, no_override)
     try:
-        parser = OpenApiParser(spec)
+        parser = OpenApiParser(spec, override=override_path)
     except Exception as e:
         _abort(f"Failed to parse spec: {e}")
 
@@ -492,6 +538,8 @@ def validate(
         ..., help="Path or URL to the OpenAPI spec (yaml/json)."
     ),
     json_out: bool = typer.Option(False, "--json", help="Output as JSON."),
+    override: Path | None = typer.Option(None, "--override", help=OVERRIDE_HELP),
+    no_override: bool = typer.Option(False, "--no-override", help=NO_OVERRIDE_HELP),
 ) -> None:
     """
     Validate an OpenAPI spec without generating any files.
@@ -500,10 +548,11 @@ def validate(
     Returns exit code 0 on success, 1 on failure.
     """
     spec = _validate_spec_source(spec)
+    override_path = _resolve_override(spec, override, no_override)
     errors: list[str] = []
 
     try:
-        parser = OpenApiParser(spec)
+        parser = OpenApiParser(spec, override=override_path)
     except Exception as e:
         errors.append(str(e))
 
@@ -555,14 +604,17 @@ def list_paths(
     with_methods: bool = typer.Option(
         True, "--with-methods/--no-with-methods", help="Show methods next to each path."
     ),
+    override: Path | None = typer.Option(None, "--override", help=OVERRIDE_HELP),
+    no_override: bool = typer.Option(False, "--no-override", help=NO_OVERRIDE_HELP),
 ) -> None:
     """
     List all paths in the spec, optionally filtered by HTTP methods.
     """
     spec = _validate_spec_source(spec)
+    override_path = _resolve_override(spec, override, no_override)
     methods = _method_upper_list(method)
     try:
-        parser = OpenApiParser(spec)
+        parser = OpenApiParser(spec, override=override_path)
     except Exception as e:
         _abort(f"Failed to parse spec: {e}")
     paths = parser.model.paths or {}
@@ -601,6 +653,8 @@ def sample(
         "--content-type",
         help="Filter a specific content type.",
     ),
+    override: Path | None = typer.Option(None, "--override", help=OVERRIDE_HELP),
+    no_override: bool = typer.Option(False, "--no-override", help=NO_OVERRIDE_HELP),
 ) -> None:
     """
     Print generated request/response body samples for a path (and optionally a method).
@@ -612,8 +666,9 @@ def sample(
         and m_upper not in {e.value for e in METHOD}
     ):
         _abort(f"Unknown method: {method}")
+    override_path = _resolve_override(spec, override, no_override)
     try:
-        parser = OpenApiParser(spec)
+        parser = OpenApiParser(spec, override=override_path)
         # Validate path exists
         parser.get_path_item(path)
     except Exception as e:
@@ -705,6 +760,9 @@ def batch(
         True, "--env/--no-env", help="Also generate env files for each spec."
     ),
     env_name: str = typer.Option("dev", "--env-name", help="Environment section name."),
+    no_override: bool = typer.Option(
+        False, "--no-override", help="Ignore <spec>_override.* files next to specs."
+    ),
 ) -> None:
     """
     Process a directory of OpenAPI specs (or a single file) and generate .http (+ env) for each.
@@ -724,7 +782,7 @@ def batch(
         pats = [p.strip() for p in pattern.split(",") if p.strip()]
         for pat in pats:
             files.extend(input_path.glob(pat))
-        files = sorted(set(files))
+        files = sorted(f for f in set(files) if not is_override_file(f))
     else:
         _abort(f"Path not found: {input_path}")
 
@@ -743,7 +801,10 @@ def batch(
                 include_schema=include_schema,
                 editor_mode=em,
             )
-            gen = HtttpFileGenerator(spec, settings=settings)
+            override_path = None if no_override else find_override(spec)
+            if override_path is not None:
+                typer.secho(f"Using override: {override_path}", fg=typer.colors.CYAN)
+            gen = HtttpFileGenerator(spec, settings=settings, override=override_path)
             if fm == Filemode.SINGLE:
                 out_file = spec.with_suffix(".http")
                 _ensure_write_target(out_file, overwrite)
@@ -789,6 +850,50 @@ def batch(
     if failures:
         for f in failures:
             typer.echo(f"  - {f['spec']}: {f['error']}")
+
+
+@override_app.command("oauth2")
+def override_oauth2(
+    spec: Path = typer.Argument(..., help="Path to the OpenAPI spec (yaml/json)."),
+    token_url: str = typer.Option(
+        PLACEHOLDER_TOKEN_URL, "--token-url", help="OAuth2 token endpoint."
+    ),
+    scope: list[str] | None = typer.Option(
+        None, "--scope", help="OAuth2 scope; can be passed multiple times."
+    ),
+    out: Path | None = typer.Option(
+        None,
+        "--out",
+        "-o",
+        help="Override file path. Defaults to <spec>_override.<ext> next to the spec.",
+    ),
+    overwrite: bool = typer.Option(
+        False, "--overwrite/--no-overwrite", help="Overwrite an existing override."
+    ),
+) -> None:
+    """
+    Write an override that turns HTTP bearer schemes into OAuth2 client credentials.
+    """
+    _validate_spec_source(spec)
+    try:
+        data = load_document(spec)
+    except Exception as e:
+        _abort(f"Failed to read spec: {e}")
+    patch = bearer_to_oauth2_patch(data, token_url=token_url, scopes=scope)
+    if not patch:
+        _abort("No HTTP bearer security schemes found in the spec.")
+    out_path = out or default_override_path(spec)
+    _ensure_write_target(out_path, overwrite)
+    out_path.write_text(dump_document(patch, out_path))
+
+    schemes = ", ".join(patch["components"]["securitySchemes"])
+    typer.secho(f"Override written: {out_path}", fg=typer.colors.GREEN)
+    typer.echo(f"  Converted to OAuth2 client credentials: {schemes}")
+    if token_url == PLACEHOLDER_TOKEN_URL:
+        typer.secho(
+            "  Token URL is a placeholder; pass --token-url or edit the override.",
+            fg=typer.colors.YELLOW,
+        )
 
 
 def main() -> None:

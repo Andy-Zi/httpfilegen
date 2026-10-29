@@ -10,6 +10,7 @@ from prance import ResolvingParser, ValidationError
 from .models import BaseURL, HttpClientBaseEnv, HttpFileData, OpenApiParser
 from .models.env_file.generator import generate_env_dicts
 from .models.settings.settings import Filemode, HttpSettings
+from .overrides import apply_override
 
 
 def _parse_spec_content(content: str) -> Any:
@@ -39,7 +40,7 @@ def _parse_spec_content(content: str) -> Any:
         raise ValueError(f"Failed to parse spec content: {e}")
 
 
-def load_data(file: Path | str) -> Any:
+def load_data(file: Path | str, override: Path | None = None) -> Any:
     if isinstance(file, Path):
         content = Path(file).read_text()
         data = _parse_spec_content(content)
@@ -70,6 +71,9 @@ def load_data(file: Path | str) -> Any:
             content = Path(file).read_text()
             data = _parse_spec_content(content)
 
+    if override is not None:
+        data = apply_override(data, override)
+
     def _recursion_handler(limit, ref_url, recursions):
         return {}
 
@@ -99,13 +103,19 @@ def load_data(file: Path | str) -> Any:
 class HtttpFileGenerator:
     env_files: dict[Path, HttpClientBaseEnv]
 
-    def __init__(self, file: str | Path, settings: HttpSettings | None = None) -> None:
+    def __init__(
+        self,
+        file: str | Path,
+        settings: HttpSettings | None = None,
+        override: Path | None = None,
+    ) -> None:
         """Initialize with a local file path or a remote URL to an OpenAPI spec.
 
         settings controls generation behavior (e.g., filemode). If not provided,
-        defaults are loaded (SINGLE mode by default).
+        defaults are loaded (SINGLE mode by default). override is a merge-patch
+        file applied to the spec before it is resolved.
         """
-        data = load_data(file)
+        data = load_data(file, override)
         parser = OpenApiParser(data)
         components = parser.model.components
         security_schemes = components.securitySchemes if components else None
