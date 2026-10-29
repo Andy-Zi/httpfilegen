@@ -83,12 +83,12 @@ paths:
     assert b_out.exists()
 
     a_txt = a_out.read_text()
-    assert "### Request Examples" in a_txt
+    assert "# Request Examples" in a_txt
     assert "## Request example (application/json - ex1)" in a_txt
     assert "## Request example (application/json - ex2)" in a_txt
     assert "## Request example (text/plain)" in a_txt
     assert "# hello" in a_txt
 
     b_txt = b_out.read_text()
-    assert "### Request Examples" in b_txt
+    assert "# Request Examples" in b_txt
     assert "## Request example (application/json)" in b_txt

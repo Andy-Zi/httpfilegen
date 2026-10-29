@@ -1,10 +1,46 @@
 import json
+import re
 from pathlib import Path
 
 from .models import BaseURL, HttpClientBaseEnv, HttpFileData, OpenApiParser
 from .models.env_file.generator import generate_env_dicts
 from .models.settings.settings import Filemode, HttpSettings
 from .spec_loader import _parse_spec_content, load_data  # noqa: F401
+
+_PATH_PARAM = re.compile(r"\{\{?([^{}]+?)\}?\}")
+
+
+def _directory_names(paths: list[list[str]]) -> dict[tuple[str, ...], str]:
+    """Map each path prefix to a shell-safe directory name for its last segment.
+
+    Path parameters (``{id}`` or ``{{id}}``) become ``_id_``. If a literal
+    sibling segment already has that name (compared case-insensitively for
+    case-insensitive filesystems), more underscores are added until it is unique.
+    """
+    literals: dict[tuple[str, ...], set[str]] = {}
+    for parts in paths:
+        for i, seg in enumerate(parts):
+            if not _PATH_PARAM.search(seg):
+                literals.setdefault(tuple(parts[:i]), set()).add(seg.casefold())
+
+    names: dict[tuple[str, ...], str] = {}
+    for parts in paths:
+        for i, seg in enumerate(parts):
+            key = tuple(parts[: i + 1])
+            if key in names:
+                continue
+            if not _PATH_PARAM.search(seg):
+                names[key] = seg
+                continue
+            taken = literals.get(tuple(parts[:i]), set())
+            pad = "_"
+            while True:
+                name = _PATH_PARAM.sub(lambda m: f"{pad}{m.group(1)}{pad}", seg)
+                if name.casefold() not in taken:
+                    break
+                pad += "_"
+            names[key] = name
+    return names
 
 
 class HtttpFileGenerator:
@@ -115,19 +151,23 @@ class HtttpFileGenerator:
     def to_http_files(self, out_dir: Path, filename: str = "index.http") -> None:
         """Write one .http file per API path under out_dir.
 
-        The directory structure mirrors the path segments. For example, a path
-        like "/api/v1/users/{id}" will be written to:
-            out_dir/api/v1/users/{id}/index.http
+        The directory structure mirrors the path segments, with path parameters
+        written as "_name_" so no directory needs shell quoting. For example, a
+        path like "/api/v1/users/{id}" will be written to:
+            out_dir/api/v1/users/_id_/index.http
+        The request URLs inside the file keep the "{{id}}" variable.
         The file content includes the shared block and all methods for that path.
         """
         out_dir.mkdir(parents=True, exist_ok=True)
         groups = self._group_requests_by_path()
+        # Normalize and split paths into segments, ignoring leading '/'
+        segments = {path: [seg for seg in path.split("/") if seg] for path in groups}
+        dir_names = _directory_names(list(segments.values()))
         for path, reqs in groups.items():
-            # Normalize and split path into segments, ignoring leading '/'
-            parts = [seg for seg in path.split("/") if seg]
+            parts = segments[path]
             target_dir = out_dir
-            for seg in parts:
-                target_dir = target_dir / seg
+            for i in range(len(parts)):
+                target_dir = target_dir / dir_names[tuple(parts[: i + 1])]
             target_dir.mkdir(parents=True, exist_ok=True)
             target_file = target_dir / filename
 

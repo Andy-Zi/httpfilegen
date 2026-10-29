@@ -131,11 +131,11 @@ class HttpRequest(BaseModel):
 
         # Append commented request body examples if enabled
         if include_schema and self.request_examples:
-            lines += "\n### Request Examples\n"
+            lines += "\n# Request Examples\n"
             lines += self._render_request_examples(self.request_examples)
         # Append commented response examples if enabled
         if include_examples and self.response_examples:
-            lines += "\n### Response Examples\n"
+            lines += "\n# Response Examples\n"
             lines += self._render_response_examples(self.response_examples)
         return lines
 

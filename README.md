@@ -171,6 +171,7 @@ httpfilegen generate path/to/openapi.yaml \
   --out api.http \
   --filemode MULTI
 # Creates ./api/<path-segments>/index.http
+# e.g. /bids/{mrid}/acknowledgement -> ./api/bids/_mrid_/acknowledgement/index.http
 ```
 
 Multi-file with explicit base URL and env files under the same directory tree:
@@ -313,6 +314,7 @@ http_file_generator.to_env_files(public_env, private_env, env_name="dev")
 - Generated env files follow the schemas used by Kulala. Private env contains only secrets and extra variables; public env contains non-sensitive auth config.
 - OpenAPI parsing relies on prance and openapi-pydantic; external $refs are resolved automatically.
 - When using `--base-url` or `HttpSettings.baseURL`, the URL creates an additional environment in the generated env files. If the spec also defines servers, each server creates its own environment.
+- In `MULTI` mode, path parameters become `_name_` directories (`/users/{id}` -> `users/_id_/index.http`), so no path needs shell quoting; the requests inside still use `{{id}}`. If a literal sibling segment already has that name, more underscores are added (`__id__`).
 - In `MULTI` mode, env files (if enabled) default to being written next to the generated tree unless `--env-dir` is specified.
 
 ## Generated Output Examples

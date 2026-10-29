@@ -64,7 +64,7 @@ paths:
     data = out.read_text()
 
     # Request examples header and named examples
-    assert "### Request Examples" in data
+    assert "# Request Examples" in data
     assert "## Request example (application/json - ex1)" in data
     assert "## Request example (application/json - ex2)" in data
     # Plain text example rendered commented
@@ -74,7 +74,7 @@ paths:
     assert "## Request example (application/x.sample+json)" in data
 
     # Response examples header and both content types
-    assert "### Response Examples" in data
+    assert "# Response Examples" in data
     assert "## Response example (200 application/json)" in data
     assert "# {" in data  # commented JSON
     assert "## Response example (200 text/plain)" in data
