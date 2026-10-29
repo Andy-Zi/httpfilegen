@@ -148,6 +148,8 @@ class OAuth2Auth(BaseModel):
 
     @model_validator(mode="after")
     def validate_oauth2(self) -> "OAuth2Auth":
+        # Secrets (Client Secret, Username, Password) live in the private env file,
+        # which Kulala merges at runtime, so they are not required here.
         gt = self.grant_type
         if gt == "Authorization Code":
             if not self.auth_url:
@@ -163,10 +165,6 @@ class OAuth2Auth(BaseModel):
                 raise ValueError(
                     "Token URL is required for Client Credentials grant type"
                 )
-            if not self.client_secret:
-                raise ValueError(
-                    "Client Secret is required for Client Credentials grant type"
-                )
         elif gt == "Device Authorization":
             if not self.device_auth_url:
                 raise ValueError(
@@ -179,11 +177,6 @@ class OAuth2Auth(BaseModel):
         elif gt == "Implicit":
             if not self.auth_url:
                 raise ValueError("Auth URL is required for Implicit grant type")
-        elif gt == "Password":
-            if not self.username or not self.password:
-                raise ValueError(
-                    "Username and Password are required for Password grant type"
-                )
         # Set default response_type if not set
         if gt in ["Authorization Code", "Implicit"] and not self.response_type:
             self.response_type = "code" if gt == "Authorization Code" else "token"

@@ -47,17 +47,12 @@ paths:
     assert "dev" in pub
     assert "dev" in prv
 
-    # Public may or may not include Security/Auth depending on what can be derived from flows
-    sec = pub["dev"].get("Security")
-    if sec is not None:
-        assert isinstance(sec, dict)
-        auth = sec.get("Auth")
-        assert auth is None or isinstance(auth, dict)
+    pub_auth = pub["dev"]["Security"]["Auth"]["auth0"]
+    assert pub_auth["Grant Type"] == "Client Credentials"
+    assert pub_auth["Token URL"] == "https://id.example.com/oauth/token"
+    assert pub_auth["Client ID"] == "CHANGE_ME"
+    assert pub_auth["Scope"] == "read"
+    assert "Client Secret" not in pub_auth
 
-    # Private can include secrets skeleton
-    prv_sec = prv["dev"].get("Security")
-    if prv_sec:
-        assert isinstance(prv_sec, dict)
-        pauth = prv_sec.get("Auth")
-        if pauth:
-            assert isinstance(pauth, dict)
+    prv_auth = prv["dev"]["Security"]["Auth"]["auth0"]
+    assert prv_auth["Client Secret"] == "CHANGE_ME"

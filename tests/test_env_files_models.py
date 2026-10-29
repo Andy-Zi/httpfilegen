@@ -60,16 +60,16 @@ def test_ssl_client_cert_auth_validates_files(tmp_path) -> None:
         )
 
 
-def test_oauth2_password_requires_username_and_password() -> None:
-    with pytest.raises(ValueError):
-        OAuth2Auth(
-            **{
-                "Type": "OAuth2",
-                "Grant Type": "Password",
-                "Token URL": "https://id.example.com/token",
-                "Client ID": "id",
-            }
-        )
+def test_oauth2_password_allows_credentials_in_private_env() -> None:
+    auth = OAuth2Auth(
+        **{
+            "Type": "OAuth2",
+            "Grant Type": "Password",
+            "Token URL": "https://id.example.com/token",
+            "Client ID": "id",
+        }
+    )
+    assert auth.username is None and auth.password is None
 
 
 def test_oauth2_client_credentials_requirements() -> None:
@@ -78,11 +78,18 @@ def test_oauth2_client_credentials_requirements() -> None:
             **{
                 "Type": "OAuth2",
                 "Grant Type": "Client Credentials",
-                "Token URL": "https://id.example.com/token",
                 "Client ID": "id",
-                # missing Client Secret should error
             }
         )
+    auth = OAuth2Auth(
+        **{
+            "Type": "OAuth2",
+            "Grant Type": "Client Credentials",
+            "Token URL": "https://id.example.com/token",
+            "Client ID": "id",
+        }
+    )
+    assert auth.client_secret is None
 
 
 def test_oauth2_pkce_validation() -> None:
