@@ -73,6 +73,41 @@ def _get_config_value(config: dict[str, Any], key: str, default: Any = None) -> 
     return config.get(key, default)
 
 
+def _apply_config_defaults(
+    mode: str,
+    filemode: str | None,
+    base_url: str | None,
+    env_name: str,
+    include_examples: bool,
+    include_schema: bool,
+) -> tuple[str, str | None, str | None, str, bool, bool]:
+    """Fill options still at their CLI default with values from the config file."""
+    config = _load_config()
+
+    if mode == "default":
+        config_mode = _get_config_value(config, "mode")
+        if config_mode:
+            mode = str(config_mode)
+    if filemode is None:
+        config_filemode = _get_config_value(config, "filemode")
+        if config_filemode:
+            filemode = str(config_filemode)
+    if base_url is None:
+        config_base_url = _get_config_value(config, "base_url")
+        if config_base_url:
+            base_url = str(config_base_url)
+    if env_name == "dev":
+        config_env_name = _get_config_value(config, "env_name")
+        if config_env_name:
+            env_name = str(config_env_name)
+    if not include_examples:
+        include_examples = _get_config_value(config, "include_examples") is True
+    if not include_schema:
+        include_schema = _get_config_value(config, "include_schema") is True
+
+    return mode, filemode, base_url, env_name, include_examples, include_schema
+
+
 def _method_upper_list(methods: list[str] | None) -> list[str] | None:
     if methods is None:
         return None
@@ -189,34 +224,11 @@ def generate(
     Generate a .http file from an OpenAPI spec.
     Optionally also generate http-client env files.
     """
-    # Load configuration and apply defaults
-    config = _load_config()
-
-    # Apply defaults if not explicitly provided
-    if mode == "default":  # Only override if using default
-        config_mode = _get_config_value(config, "mode")
-        if config_mode:
-            mode = str(config_mode)
-    if filemode is None:
-        config_filemode = _get_config_value(config, "filemode")
-        if config_filemode:
-            filemode = str(config_filemode)
-    if base_url is None:
-        config_base_url = _get_config_value(config, "base_url")
-        if config_base_url:
-            base_url = str(config_base_url)
-    if env_name == "dev":  # Only override if using default
-        config_env_name = _get_config_value(config, "env_name")
-        if config_env_name:
-            env_name = str(config_env_name)
-    if not include_examples:  # Only override if False (default)
-        config_examples = _get_config_value(config, "include_examples")
-        if config_examples is True:
-            include_examples = True
-    if not include_schema:  # Only override if False (default)
-        config_schema = _get_config_value(config, "include_schema")
-        if config_schema is True:
-            include_schema = True
+    mode, filemode, base_url, env_name, include_examples, include_schema = (
+        _apply_config_defaults(
+            mode, filemode, base_url, env_name, include_examples, include_schema
+        )
+    )
 
     spec = _validate_spec_source(spec)
     # Derive output path (file or directory depending on filemode)
@@ -697,6 +709,11 @@ def batch(
     """
     Process a directory of OpenAPI specs (or a single file) and generate .http (+ env) for each.
     """
+    mode, filemode, base_url, env_name, include_examples, include_schema = (
+        _apply_config_defaults(
+            mode, filemode, base_url, env_name, include_examples, include_schema
+        )
+    )
     processed = 0
     failures: list[dict[str, str]] = []
 

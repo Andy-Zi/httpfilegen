@@ -20,6 +20,14 @@ def add_src_to_path(project_root):
         sys.path.remove(str(src))
 
 
+@pytest.fixture(autouse=True)
+def isolated_home(tmp_path_factory, monkeypatch) -> Path:
+    """Point HOME at an empty directory so the user's config.toml cannot leak in."""
+    home = tmp_path_factory.mktemp("home")
+    monkeypatch.setenv("HOME", str(home))
+    return home
+
+
 @pytest.fixture()
 def sample_spec_path(tmp_path: Path) -> Path:
     """Create a minimal OpenAPI 3.0 spec with GET/POST and some security schemes."""
