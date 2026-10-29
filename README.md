@@ -223,6 +223,12 @@ httpfilegen sample path/to/openapi.yaml \
   --status 200
 ```
 
+Request bodies, parameters and examples use the spec's `example`, `examples`,
+`default`, `const` and `enum` values first. Missing values are generated
+deterministically from `format`, bounds, `pattern` and the property name.
+Generated dates use today's date (UTC); set `SOURCE_DATE_EPOCH` to pin it for
+fully reproducible output.
+
 ### Validate a spec
 
 Validate an OpenAPI spec without generating any files:

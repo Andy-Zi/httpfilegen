@@ -9,10 +9,10 @@ from openapi_pydantic import (
     parse_obj,
 )
 from pydantic import BaseModel
-from jsf import JSF
 
 from ..enums import METHOD
 from ...spec_loader import load_data
+from ..utils.sample_data import generate_sample
 
 
 class OpenApiParser(BaseModel):
@@ -212,10 +212,8 @@ class OpenApiParser(BaseModel):
         return responses_dict
 
     def _generate_sample_from_schema(self, schema: dict) -> dict:
-        """Generate a sample dict conforming to the given JSON schema using jsf."""
+        """Generate a sample dict conforming to the given JSON schema."""
         try:
-            faker = JSF(schema=schema)
-            sample = faker.generate()
-            return sample
+            return generate_sample(schema)
         except Exception as e:
             raise ValueError(f"Failed to generate sample from schema: {e}")

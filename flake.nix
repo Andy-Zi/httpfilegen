@@ -19,33 +19,6 @@
         python = pkgs.python313;
         pyPkgs = python.pkgs;
 
-        jsf = pyPkgs.buildPythonPackage rec {
-          pname = "jsf";
-          version = "0.11.2"; # adjust if needed
-
-          src = pkgs.fetchPypi {
-            inherit pname version;
-            hash = "sha256-BwVbNjKB04zocaklagBYfYRygCxRCHIaf+WIRGUQS10=";
-          };
-
-          pyproject = true;
-          build-system = with pyPkgs; [ setuptools wheel ];
-
-          # Fix runtime deps check failure
-          dependencies = with pyPkgs; [
-            faker
-            jsonschema
-            pydantic
-            pydantic-settings
-            rstr
-            smart-open
-            typer
-            typing-extensions
-          ];
-
-          doCheck = false;
-        };
-
         # Development dependencies
         devDeps = with pkgs; [
           uv
@@ -159,12 +132,12 @@
             "typer"
           ];
           dependencies = with pyPkgs; [
-            jsf
             openapi-pydantic
             openapi-spec-validator
             prance
             pydantic
             pydantic-settings
+            rstr
             typer
           ];
 

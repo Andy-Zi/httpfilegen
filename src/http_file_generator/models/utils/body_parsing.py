@@ -15,7 +15,7 @@ from openapi_pydantic.v3.v3_0 import (
     Reference as Reference3_0,
     Example as Example3_0,
 )
-from jsf import JSF
+from .sample_data import generate_sample
 
 
 Parameter = Union[Parameter3_0, Parameter3_1]
@@ -60,10 +60,9 @@ def handle_body(
 
 
 def _generate_sample_body_from_schema(schema: dict) -> dict:
-    """Generate a sample dict conforming to the given JSON schema using jsf."""
+    """Generate a sample dict conforming to the given JSON schema."""
     try:
-        faker = JSF(schema=schema, allow_none_optionals=0)
-        sample = faker.generate(n=1, use_defaults=True, use_examples=True)
+        sample = generate_sample(schema)
         if isinstance(sample, list):
             if sample:
                 return sample[0]

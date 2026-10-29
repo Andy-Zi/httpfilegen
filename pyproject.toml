@@ -5,7 +5,7 @@ description = "Generate .http request files and HTTP client environment files fr
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "jsf>=0.11.2,<1.0",
+    "rstr>=3.2.2,<4.0",
     "openapi-pydantic>=0.5.1,<1.0",
     "openapi-spec-validator>=0.7.2,<1.0",
     "prance>=26.7.19,<27.0",

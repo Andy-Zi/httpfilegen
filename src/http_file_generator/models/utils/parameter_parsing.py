@@ -13,10 +13,8 @@ from openapi_pydantic.v3.v3_0 import (
     ParameterLocation as ParameterLocation3_0,
     Operation as Operation3_0,
 )
-from jsf import JSF
-
-
 from ..http_file.var import HttpVariable
+from .sample_data import generate_sample
 
 
 def _encode_query_param_name(name: str) -> str:
@@ -92,17 +90,14 @@ def handle_path_params(path: str, param: Parameter) -> tuple[str, HttpVariable]:
         path = path.replace(token, "{{" + new_name + "}}")
     else:
         raise ValueError(f"Parameter {param.name} not found in path {path}")
-    if param.example:
+    if param.example is not None:
         value = param.example
     elif param.examples:
         ex = next(iter(param.examples.values()))
         value = getattr(ex, "value", ex)
     elif param.param_schema:
-        value = (
-            _generate_sample_param_from_schema(
-                param.param_schema.model_dump(by_alias=True, exclude_none=True)
-            )
-            or {}
+        value = _generate_sample_param_from_schema(
+            param.param_schema.model_dump(by_alias=True, exclude_none=True)
         )
     else:
         value = {}
@@ -114,10 +109,9 @@ def handle_path_params(path: str, param: Parameter) -> tuple[str, HttpVariable]:
 
 
 def _generate_sample_body_from_schema(schema: dict) -> dict:
-    """Generate a sample dict conforming to the given JSON schema using jsf."""
+    """Generate a sample dict conforming to the given JSON schema."""
     try:
-        faker = JSF(schema=schema, allow_none_optionals=0)
-        sample = faker.generate(n=1, use_defaults=True, use_examples=True)
+        sample = generate_sample(schema)
         if isinstance(sample, list):
             if sample:
                 return sample[0]
@@ -131,15 +125,13 @@ def _generate_sample_body_from_schema(schema: dict) -> dict:
 
 
 def _generate_sample_param_from_schema(schema: dict) -> Union[int, str, float, bool]:
-    """Generate a sample dict conforming to the given JSON schema using jsf."""
+    """Generate a sample scalar conforming to the given JSON schema."""
     try:
-        faker = JSF(schema=schema)
-        sample = faker.generate(n=1, use_defaults=True, use_examples=True)
+        sample = generate_sample(schema)
         if isinstance(sample, list):
-            if sample:
-                return sample[0]
-            else:
-                return ""
+            sample = sample[0] if sample else None
+        if sample is None:
+            return ""
         if not isinstance(sample, (int, str, float, bool)):
             try:
                 return str(sample)
@@ -160,17 +152,14 @@ def handle_query_params(path: str, param: Parameter) -> tuple[str, HttpVariable]
         path += "\n&" + encoded_name + "={{" + param.name + "}}"
     else:
         path += "\n?" + encoded_name + "={{" + param.name + "}}"
-    if param.example:
+    if param.example is not None:
         value = param.example
     elif param.examples:
         ex = next(iter(param.examples.values()))
         value = getattr(ex, "value", ex)
     elif param.param_schema:
-        value = (
-            _generate_sample_param_from_schema(
-                param.param_schema.model_dump(by_alias=True, exclude_none=True)
-            )
-            or {}
+        value = _generate_sample_param_from_schema(
+            param.param_schema.model_dump(by_alias=True, exclude_none=True)
         )
     else:
         value = {}
@@ -186,17 +175,14 @@ def handle_header_params(path: str, param: Parameter) -> HttpVariable | None:
     Handle header parameters by creating a variable placeholder.
     The actual header line can be added manually by the user using the variable.
     """
-    if param.example:
+    if param.example is not None:
         value = param.example
     elif param.examples:
         ex = next(iter(param.examples.values()))
         value = getattr(ex, "value", ex)
     elif param.param_schema:
-        value = (
-            _generate_sample_param_from_schema(
-                param.param_schema.model_dump(by_alias=True, exclude_none=True)
-            )
-            or {}
+        value = _generate_sample_param_from_schema(
+            param.param_schema.model_dump(by_alias=True, exclude_none=True)
         )
     else:
         value = {}
@@ -211,17 +197,14 @@ def handle_cookie_params(path: str, param: Parameter) -> HttpVariable | None:
     """
     Handle cookie parameters by creating a variable placeholder.
     """
-    if param.example:
+    if param.example is not None:
         value = param.example
     elif param.examples:
         ex = next(iter(param.examples.values()))
         value = getattr(ex, "value", ex)
     elif param.param_schema:
-        value = (
-            _generate_sample_param_from_schema(
-                param.param_schema.model_dump(by_alias=True, exclude_none=True)
-            )
-            or {}
+        value = _generate_sample_param_from_schema(
+            param.param_schema.model_dump(by_alias=True, exclude_none=True)
         )
     else:
         value = {}

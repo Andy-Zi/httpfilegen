@@ -17,11 +17,11 @@ from openapi_pydantic.v3.v3_0 import SecurityScheme as SecurityScheme3_0
 from openapi_pydantic.v3.v3_1 import Reference as Reference3_1
 from openapi_pydantic.v3.v3_0 import Reference as Reference3_0
 from pydantic import BaseModel, Field
-from jsf import JSF
 
 from http_file_generator.models.utils.body_parsing import handle_body
 from http_file_generator.models.utils.parameter_parsing import handle_params
 from http_file_generator.models.utils.auth_parsing import apply_security
+from http_file_generator.models.utils.sample_data import generate_sample
 
 from ..enums import METHOD
 
@@ -195,11 +195,9 @@ class HttpRequest(BaseModel):
     def _generate_sample_from_schema(schema: dict) -> Any:
         """Generate a sample value from a JSON schema. Returns None on failure."""
         try:
-            faker = JSF(schema=schema)
-            sample = faker.generate()
-            return sample
+            return generate_sample(schema)
         except (ValueError, TypeError, KeyError, AttributeError, NotImplementedError):
-            # Schema may be malformed or unsupported by JSF
+            # Schema may be malformed or use an unsupported type
             return None
 
     @classmethod
