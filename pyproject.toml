@@ -1,7 +1,7 @@
 [project]
 name = "httpfilegen"
 version = "0.1.0"
-description = "Add your description here"
+description = "Generate .http request files and HTTP client environment files from OpenAPI 3.x specs"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

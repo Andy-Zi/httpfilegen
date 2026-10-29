@@ -182,7 +182,7 @@
 
           meta = with pkgs.lib; {
             description = "CLI tool for generating HTTP files from OpenAPI specs";
-            homepage = "https://github.com/your-repo/httpfilegen";
+            homepage = "https://git.ancofazi.de/Andreas/httpfilegen";
             license = licenses.mit;
             maintainers = [ ];
           };

@@ -20,7 +20,7 @@ uv run pytest -k "pattern"                       # Tests matching pattern
 # Lint and format
 uv run ruff check --fix src/ tests/ && uv run ruff format src/ tests/
 
-# Coverage (80% threshold enforced)
+# Coverage (CI enforces 75%; aim for 80%)
 uv run coverage report --fail-under=80
 ```
 

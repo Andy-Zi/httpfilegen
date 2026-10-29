@@ -467,7 +467,7 @@ The actual request syntax is identical across all modes.
 
 ## Development
 
-- Install dev dependencies: `uv pip install -e ".[test]"`
+- Install dev dependencies: `uv sync --extra test`
 - Run tests: `uv run pytest`
 - Run with coverage: `uv run pytest --cov=src --cov-report=term-missing`
 - Lint: `uv run ruff check src/ tests/`

@@ -14,7 +14,7 @@ This file contains development guidelines and commands for coding agents working
 - **Run tests in verbose mode**: `uv run pytest -v`
 
 ### Linting and Code Quality
-- **Install ruff** (if not already installed): `uv add --dev ruff`
+- **Ruff** is in the `dev` dependency group, which `uv sync` installs by default
 - **Lint code**: `uv run ruff check src/ tests/`
 - **Auto-fix linting issues**: `uv run ruff check --fix src/ tests/`
 - **Format code**: `uv run ruff format src/ tests/`
@@ -111,8 +111,8 @@ This file contains development guidelines and commands for coding agents working
 ### Git Workflow
 - **Commits**: Descriptive commit messages following conventional format
 - **Branching**: Feature branches for development
-- **CI/CD**: GitHub Actions workflow runs tests on push/PR
-- **Coverage**: Must maintain 80% coverage threshold
+- **CI/CD**: Forgejo Actions (`.forgejo/workflows/ci.yml`) runs tests, the coverage gate and `nix build` on pushes to main and PRs
+- **Coverage**: Aim for 80%; CI fails below 75%
 
 ### Security
 - **Secrets**: Never commit secrets, API keys, or credentials
@@ -128,7 +128,7 @@ This file contains development guidelines and commands for coding agents working
 
 ## Development Workflow
 
-1. **Setup**: `uv sync --extra test && uv pip install -e .`
+1. **Setup**: `uv sync --extra test`
 2. **Code**: Make changes following style guidelines
 3. **Test**: `uv run pytest` to run tests
 4. **Lint**: `uv run ruff check --fix src/ tests/ && uv run ruff format src/ tests/`
