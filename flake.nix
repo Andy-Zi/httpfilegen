@@ -174,7 +174,10 @@
           ];
 
           makeWrapperArgs = [
-            "--prefix PATH : ${python}/bin"
+            "--prefix"
+            "PATH"
+            ":"
+            "${python}/bin"
           ];
 
           meta = with pkgs.lib; {
