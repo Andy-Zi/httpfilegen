@@ -12,7 +12,13 @@ except ImportError:
 import typer
 
 from http_file_generator import HtttpFileGenerator
-from http_file_generator.models import METHOD, Filemode, EditorMode, HttpSettings, OpenApiParser
+from http_file_generator.models import (
+    METHOD,
+    Filemode,
+    EditorMode,
+    HttpSettings,
+    OpenApiParser,
+)
 from http_file_generator.models.env_file.generator import EnvAuthWarning
 from http_file_generator.overrides import (
     DEFAULT_ADDED_SCHEME,
@@ -55,7 +61,9 @@ def _write_env_files(
     """Write env files and print a warning for each auth config that was dropped or incomplete."""
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always", EnvAuthWarning)
-        has_valid_base_url = gen.to_env_files(public_env, private_env, env_name=env_name)
+        has_valid_base_url = gen.to_env_files(
+            public_env, private_env, env_name=env_name
+        )
     for w in caught:
         if issubclass(w.category, EnvAuthWarning):
             typer.secho(f"Warning: {w.message}", fg=typer.colors.YELLOW, err=True)
@@ -388,7 +396,9 @@ def generate(
         except Exception as e:
             _abort(f"Failed to write HTTP files: {e}")
         if not quiet:
-            typer.secho(f"HTTP files generated under: {target_dir}", fg=typer.colors.GREEN)
+            typer.secho(
+                f"HTTP files generated under: {target_dir}", fg=typer.colors.GREEN
+            )
         default_env_dir = target_dir
 
     if env:
@@ -397,12 +407,15 @@ def generate(
         private_env = env_target_dir / private_env_filename
         public_env.parent.mkdir(parents=True, exist_ok=True)
         try:
-            has_valid_base_url = _write_env_files(gen, public_env, private_env, env_name)
+            has_valid_base_url = _write_env_files(
+                gen, public_env, private_env, env_name
+            )
         except Exception as e:
             _abort(f"Failed to write env files: {e}")
         if not quiet:
             typer.secho(
-                f"Env files generated: {public_env}, {private_env}", fg=typer.colors.GREEN
+                f"Env files generated: {public_env}, {private_env}",
+                fg=typer.colors.GREEN,
             )
         if not has_valid_base_url:
             typer.secho(
@@ -592,14 +605,16 @@ def validate(
     servers_count = len(parser.model.servers or [])
 
     if json_out:
-        _json_print({
-            "valid": True,
-            "openapi_version": openapi_version,
-            "title": info_data.title if info_data else None,
-            "version": info_data.version if info_data else None,
-            "paths_count": paths_count,
-            "servers_count": servers_count,
-        })
+        _json_print(
+            {
+                "valid": True,
+                "openapi_version": openapi_version,
+                "title": info_data.title if info_data else None,
+                "version": info_data.version if info_data else None,
+                "paths_count": paths_count,
+                "servers_count": servers_count,
+            }
+        )
     else:
         typer.secho("Validation OK", fg=typer.colors.GREEN, bold=True)
         typer.echo(f"  OpenAPI version: {openapi_version}")

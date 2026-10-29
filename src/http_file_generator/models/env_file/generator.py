@@ -315,7 +315,9 @@ def generate_env_dicts(
                     "Scope": "openid",
                 }
                 private_auth[name] = {"Client Secret": "CHANGE_ME"}
-                discovery = scheme.openIdConnectUrl or "the provider's discovery document"
+                discovery = (
+                    scheme.openIdConnectUrl or "the provider's discovery document"
+                )
                 _warn(
                     name,
                     "Kulala does not support OpenID Connect discovery; set Auth URL "

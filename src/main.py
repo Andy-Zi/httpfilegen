@@ -34,9 +34,7 @@ if __name__ == "__main__":
     print("\n📋 Tool Compatibility:")
     print("✅ Kulala (Neovim): Full support including environment files")
     print("✅ PyCharm/IntelliJ: Full support with JetBrains HTTP Client")
-    print(
-        "✅ httpyac (VS Code): Full support - use httpyac extension, not REST Client"
-    )
+    print("✅ httpyac (VS Code): Full support - use httpyac extension, not REST Client")
     print(
         "⚠️  VS Code REST Client: Limited support - environment variables need manual setup"
     )

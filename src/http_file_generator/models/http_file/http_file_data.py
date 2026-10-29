@@ -54,9 +54,7 @@ class HttpFileData(BaseModel):
             url = srv.url.strip() if srv.url else ""
             if not url or url == "/":
                 continue
-            base_urls.add(
-                BaseURL(value=srv.url, description=srv.description or "")
-            )
+            base_urls.add(BaseURL(value=srv.url, description=srv.description or ""))
 
         return cls(
             base_urls=base_urls,

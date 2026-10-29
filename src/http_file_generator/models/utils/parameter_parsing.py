@@ -23,6 +23,7 @@ def _encode_query_param_name(name: str) -> str:
     # safe="" means encode everything except alphanumerics and _.-~
     return quote(name, safe="_.-~")
 
+
 Parameter = Union[Parameter3_0, Parameter3_1]
 RequestBody = Union[RequestBody3_0, RequestBody3_1]
 ParameterLocation = Union[ParameterLocation3_0, ParameterLocation3_1]

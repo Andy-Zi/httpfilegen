@@ -10,7 +10,13 @@ class Loc:
 
 class ParamStub:
     def __init__(
-        self, name, where, schema_dict=None, example=None, examples=None, description: str=""
+        self,
+        name,
+        where,
+        schema_dict=None,
+        example=None,
+        examples=None,
+        description: str = "",
     ) -> None:
         self.name = name
         self.param_in = Loc(where)

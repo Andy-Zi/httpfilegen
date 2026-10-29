@@ -53,7 +53,9 @@ class TestHttpRequestScripts:
 
     def test_request_with_both_scripts(self):
         """Test HttpRequest with both pre and post scripts."""
-        pre_script = HttpScript(script="request.variables.set('timestamp', Date.now());")
+        pre_script = HttpScript(
+            script="request.variables.set('timestamp', Date.now());"
+        )
         post_script = HttpScript(script="client.log(response.body);")
         request = HttpRequest(
             method=METHOD.PUT,
@@ -88,6 +90,7 @@ class TestHttpRequestScripts:
 
     def test_script_extraction_from_operation_no_extensions(self):
         """Test _extract_scripts returns None when no extensions present."""
+
         # Create a mock operation without extensions
         class MockOperation:
             model_extra = {}
@@ -98,6 +101,7 @@ class TestHttpRequestScripts:
 
     def test_script_extraction_from_operation_with_extensions(self):
         """Test _extract_scripts extracts scripts from extensions."""
+
         class MockOperation:
             model_extra = {
                 "x-pre-request-script": "console.log('pre');",
@@ -112,6 +116,7 @@ class TestHttpRequestScripts:
 
     def test_script_extraction_ignores_non_string_values(self):
         """Test _extract_scripts ignores non-string extension values."""
+
         class MockOperation:
             model_extra = {
                 "x-pre-request-script": {"not": "a string"},

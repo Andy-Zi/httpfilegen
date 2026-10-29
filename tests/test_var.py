@@ -94,6 +94,8 @@ class TestBaseURL:
 
     def test_custom_name_override(self):
         """Test that BaseURL name can be overridden if needed."""
-        url = BaseURL(name="CUSTOM_URL", value="https://custom.example.com", description="")
+        url = BaseURL(
+            name="CUSTOM_URL", value="https://custom.example.com", description=""
+        )
         assert url.name == "CUSTOM_URL"
         assert "@CUSTOM_URL=https://custom.example.com" in str(url)

@@ -140,7 +140,9 @@ def test_generate_env_files_no_servers(tmp_path: Path) -> None:
     assert pub["dev"]["BASE_URL"] == "TODO:// Set your API base URL here"
 
 
-def test_to_env_files_returns_has_valid_base_url(sample_spec_path, tmp_path: Path) -> None:
+def test_to_env_files_returns_has_valid_base_url(
+    sample_spec_path, tmp_path: Path
+) -> None:
     """Test that to_env_files returns True when spec has valid server URL."""
     from http_file_generator import HtttpFileGenerator
 

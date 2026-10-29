@@ -94,6 +94,4 @@ def load_data(file: Path | str, override: Path | None = None) -> Any:
                 ).specification
         except (ValueError, AttributeError):
             pass
-        raise ValueError(
-            f"OpenAPI validation failed (version: {openapi_version}): {e}"
-        )
+        raise ValueError(f"OpenAPI validation failed (version: {openapi_version}): {e}")
