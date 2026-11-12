@@ -123,8 +123,9 @@
           pyproject = true;
           build-system = with pyPkgs; [ setuptools wheel ];
 
-          nativeBuildInputs = with pyPkgs; [
-            pythonRelaxDepsHook
+          nativeBuildInputs = [
+            pyPkgs.pythonRelaxDepsHook
+            pkgs.installShellFiles
           ];
 
           pythonRelaxDeps = [
@@ -152,6 +153,25 @@
             ":"
             "${python}/bin"
           ];
+
+          # Runs after wrapPythonPrograms, so the installed command can start.
+          postFixup = pkgs.lib.optionalString (pkgs.stdenv.buildPlatform.canExecute pkgs.stdenv.hostPlatform) ''
+            export HOME="$TMPDIR"
+            for shell in bash zsh fish; do
+              _HTTPFILEGEN_COMPLETE="source_$shell" $out/bin/httpfilegen > "httpfilegen.$shell"
+              # compinit reads #compdef only from the first line.
+              sed -i '/./,$!d' "httpfilegen.$shell"
+            done
+            # typer's zsh script only defines and registers its function when
+            # loaded; run it then too, so the first TAB completes.
+            cat >> httpfilegen.zsh <<'EOF'
+
+            if [[ $zsh_eval_context[-1] == loadautofunc ]]; then
+              _httpfilegen_completion "$@"
+            fi
+            EOF
+            installShellCompletion httpfilegen.{bash,zsh,fish}
+          '';
 
           meta = with pkgs.lib; {
             description = "CLI tool for generating HTTP files from OpenAPI specs";

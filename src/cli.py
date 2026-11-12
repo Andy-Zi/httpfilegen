@@ -35,7 +35,6 @@ from http_file_generator.overrides import (
 app = typer.Typer(
     help="Generate .http files and env files from an OpenAPI spec.",
     no_args_is_help=True,
-    add_completion=False,
 )
 override_app = typer.Typer(
     help="Create spec override files (<spec>_override.{yaml,yml,json}).",
@@ -963,7 +962,9 @@ def override_oauth2(
 
 
 def main() -> None:
-    app()
+    # Wrappers such as Nix's run the script under another file name; typer
+    # derives the completion command and environment variable from this name.
+    app(prog_name="httpfilegen")
 
 
 if __name__ == "__main__":
